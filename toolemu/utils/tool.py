@@ -3,7 +3,7 @@ import random
 import re
 from ast import literal_eval
 
-from langchain.agents.tools import InvalidTool as LangChainInvalidTool
+# from langchain.agents.tools import InvalidTool as LangChainInvalidTool  # Unused import, removed for compatibility
 from langchain_core.callbacks import StdOutCallbackHandler
 from langchain_core.tools import BaseTool
 
