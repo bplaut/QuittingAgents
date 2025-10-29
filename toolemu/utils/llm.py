@@ -47,9 +47,7 @@ class ModelEnvManager:
         if model_name.lower().startswith("gpt"):
             # Check if we have OpenAI API credentials
             if os.environ.get("OPENAI_API_KEY"):
-                # Use OpenAI API directly
-                os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"
-                os.environ["OPENAI_API_KEY"] = os.environ["OPENROUTER_API_KEY"]
+                pass  # OpenAI API key is already set
             elif os.environ.get("OPENROUTER_API_KEY"):
                 # Fall back to OpenRouter
                 os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"
