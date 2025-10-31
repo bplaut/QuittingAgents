@@ -90,8 +90,7 @@ class ModelEnvManager:
 
     @staticmethod
     def is_vllm_model(model_name: str) -> bool:
-        # vllm_keywords = ["vicuna", "qwen", "llama", "mistral", "phi", "opt", "baichuan", "deepseek", "gemma"]
-        vllm_keywords = ["32b"]
+        vllm_keywords = ["qwen", "llama", "mistral"]
         return any(k in model_name.lower() for k in vllm_keywords)
 
     @staticmethod

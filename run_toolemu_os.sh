@@ -25,11 +25,11 @@ TRUNC_NUM=${6:-1000}
 ADDITIONAL_ARGS="${@:7}"
 
 # Initialize conda properly for the batch job
-eval "$(/nas/ucb/victorknox/software/miniconda3/bin/conda shell.bash hook)"
-conda activate toolemu-latest || { echo "Failed to activate conda environment"; exit 1; }
+eval "$(/nas/ucb/bplaut/miniconda3/bin/conda shell.bash hook)"
+conda activate llm-finetune || { echo "Failed to activate conda environment"; exit 1; }
 
 # Change to the correct directory
-cd /nas/ucb/victorknox/workspace/toolemu/ || { echo "Failed to change directory"; exit 1; }
+cd /nas/ucb/bplaut/QuittingAgents || { echo "Failed to change directory"; exit 1; }
 
 # Create logs directory if it doesn't exist
 mkdir -p logs
