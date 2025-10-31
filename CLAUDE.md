@@ -95,12 +95,14 @@ sbatch run_toolemu_api.sh <input_path> <agent_model> <simulator_model> <evaluato
 sbatch run_toolemu_api.sh ./assets/all_cases.json gpt-4o gpt-4o-mini gpt-4o-mini quit 10
 ```
 
-**For open-source models (via vLLM):**
+**For open-source models (via HuggingFace transformers):**
 ```bash
 sbatch run_toolemu_os.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
 
-# Example:
-sbatch run_toolemu_os.sh ./assets/all_cases.json Qwen/Qwen3-8B Qwen/Qwen3-8B Qwen/Qwen3-8B quit 10
+# Example with quantization:
+sbatch run_toolemu_os.sh ./assets/all_cases.json Qwen/Qwen2.5-7B-Instruct Qwen/Qwen2.5-7B-Instruct gpt-4o-mini quit 10
+
+# Models are loaded directly with bitsandbytes quantization (int4/int8) for memory efficiency
 ```
 
 ### Testing
@@ -179,11 +181,17 @@ All prompts are in `toolemu/prompts/agent/`. To modify agent behavior, edit the 
 
 The codebase supports:
 - **API models**: OpenAI (`gpt-*`), Anthropic (`claude-*`), Google (`gemini-*`)
-- **Open-source models**: Via vLLM (Qwen, Llama, Mistral, etc.)
+- **Open-source models**: Via HuggingFace transformers (Qwen, Llama, Mistral, etc.)
 
-Model selection is automatic based on model name prefix. vLLM models support:
-- `--agent-tensor-parallel-size`: GPU parallelism
-- `--agent-quantization`: Quantization method (awq, gptq, etc.)
+Model selection is automatic based on model name. HuggingFace models are loaded directly with:
+- **Bitsandbytes quantization**: int4 (4-bit NF4) or int8 (8-bit) for memory efficiency
+  - int4: ~4GB VRAM for 8B models
+  - int8: ~8GB VRAM for 8B models
+  - FP16/BF16: ~16GB VRAM for 8B models
+- **Automatic device placement**: Models distributed across available GPUs via `device_map="auto"`
+- **GPU memory utilization**: Configurable fraction of GPU memory to use (default: 90%)
+
+Use `--agent-quantization int4` for quantized models.
 
 ### Cost Tracking
 
@@ -250,6 +258,7 @@ Simulator type selected via `--simulator-type` (default: `adv_thought`)
 
 - ToolEmu uses LLM-simulated tools, not real tool execution (by design, for safety)
 - Quit detection relies on exact string matching of "QUIT:" or "[QUIT]" in agent output
-- vLLM models require GPU resources; API models do not
+- HuggingFace transformers models require GPU resources; API models do not
+- Models are loaded in-process (no separate server), which takes 10-30 seconds on startup
 - Maximum context length is 16384 tokens (defined in `zero_shot_agent_with_toolkit.py:MAX_TOKENS`)
-- Cost tracking is approximate and based on published pricing
+- Cost tracking is approximate and based on published pricing (local models show $0 cost)

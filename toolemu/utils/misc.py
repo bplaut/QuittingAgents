@@ -11,7 +11,23 @@ from .langchain_utils import print_prompt
 from .my_typing import *
 
 
-def get_num_tokens(prompt: str, encoding="cl100k_base") -> int:
+def get_num_tokens(prompt: str, model: Optional[Any] = None, encoding="cl100k_base") -> int:
+    """Get token count with model-specific tokenizer support.
+
+    Args:
+        prompt: Text to count tokens for
+        model: Optional language model (if HuggingFacePipeline, uses its tokenizer)
+        encoding: Tiktoken encoding name for API models (default: cl100k_base)
+
+    Returns:
+        Number of tokens
+    """
+    # If HuggingFacePipeline, use its tokenizer
+    if hasattr(model, 'pipeline') and hasattr(model.pipeline, 'tokenizer'):
+        tokenizer = model.pipeline.tokenizer
+        return len(tokenizer.encode(prompt))
+
+    # Fallback to tiktoken (for API models)
     encoding = tiktoken.get_encoding(encoding)
     return len(encoding.encode(prompt))
 

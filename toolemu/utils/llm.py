@@ -241,20 +241,20 @@ def load_openai_llm(model_name: str = "gpt-4o-mini", tensor_parallel_size=None, 
         llm = ChatOpenAI(model_name=model_name, **kwargs)
         llm.model_name = model_name
         return llm
-    # vLLM (open source, online)
-    elif ModelEnvManager.is_vllm_model(model_name):
-        api_base = f"http://localhost:{vllm_port}/v1"
-        api_key = "EMPTY"
-        # Remove irrelevant kwargs
-        for k in ["tensor_parallel_size", "quantization", "vllm_kwargs", "gpu_memory_utilization", "max_seq_len"]:
-            kwargs.pop(k, None)
-        # Qwen3: disable thinking mode and set max_tokens
-        if "qwen3" in model_name.lower():
-            kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
-            if "max_tokens" not in kwargs or kwargs["max_tokens"] is None:
-                kwargs["max_tokens"] = 2048
-        llm = ChatOpenAI(model_name=model_name, openai_api_base=api_base, openai_api_key=api_key, **kwargs)
-        return llm
+    # HuggingFace transformers (open source models)
+    elif "/" in model_name or ModelEnvManager.is_vllm_model(model_name):
+        # HuggingFace model names typically contain "/" (e.g., "meta-llama/Llama-3.1-8B")
+        # Also handle legacy keywords (qwen, llama, mistral)
+        return _load_transformers_model(
+            model_name,
+            quantization=quantization,
+            device_map="auto",
+            gpu_memory_utilization=gpu_memory_utilization or 0.9,
+            torch_dtype=kwargs.get("torch_dtype", "float16"),
+            trust_remote_code=True,
+            temperature=kwargs.get("temperature", 0.0),
+            max_tokens=kwargs.get("max_tokens"),
+        )
     # Fallback: try OpenAI, but warn
     else:
         print(f"[WARNING] Unknown model type for '{model_name}', defaulting to OpenAI-compatible loading.")
@@ -264,6 +264,106 @@ def load_openai_llm(model_name: str = "gpt-4o-mini", tensor_parallel_size=None, 
         llm = ChatOpenAI(model_name=model_name, **kwargs)
         llm.model_name = model_name
         return llm
+
+def _load_transformers_model(
+    model_name: str,
+    quantization: Optional[str] = None,
+    device_map: str = "auto",
+    gpu_memory_utilization: float = 0.9,
+    torch_dtype: str = "float16",
+    trust_remote_code: bool = True,
+    temperature: float = 0.0,
+    max_tokens: Optional[int] = 2048,
+    **kwargs
+) -> BaseLanguageModel:
+    """Load model using HuggingFace transformers with optional bitsandbytes quantization."""
+    from langchain_huggingface import HuggingFacePipeline
+    from transformers import (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        pipeline,
+        BitsAndBytesConfig
+    )
+    import torch
+
+    print(f"[INFO] Loading HuggingFace model: {model_name}")
+    if quantization:
+        print(f"[INFO] Using quantization: {quantization}")
+
+    # Load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name,
+        trust_remote_code=trust_remote_code,
+        padding_side="left",
+    )
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # Check if this is a chat/instruct model with chat template
+    has_chat_template = hasattr(tokenizer, 'chat_template') and tokenizer.chat_template is not None
+    if has_chat_template:
+        print(f"[INFO] Model has chat template - will be applied to prompts")
+
+    # Build model loading kwargs (simple syntax like generate_text.py)
+    model_kwargs = {}
+
+    # Add quantization (simplified like generate_text.py:45)
+    if quantization in ["int4", "nf4"]:
+        model_kwargs["load_in_4bit"] = True
+        print("[INFO] Using 4-bit quantization")
+    elif quantization == "int8":
+        model_kwargs["load_in_8bit"] = True
+        print("[INFO] Using 8-bit quantization")
+    else:
+        # No quantization - use specified dtype
+        dtype_map = {
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "float32": torch.float32,
+        }
+        model_kwargs["dtype"] = dtype_map.get(torch_dtype, torch.float16)
+
+    # Add device_map (exactly like generate_text.py:45)
+    if torch.cuda.is_available():
+        model_kwargs["device_map"] = "auto"
+        print(f"[INFO] Using device_map='auto' with {torch.cuda.device_count()} GPU(s)")
+
+    # Load model (exactly like generate_text.py:45)
+    print(f"[INFO] Loading model weights...")
+    model = AutoModelForCausalLM.from_pretrained(model_name, **model_kwargs)
+    model.eval()
+    print(f"[INFO] Model loaded successfully")
+
+    # Create pipeline
+    pipe = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_new_tokens=max_tokens or 2048,
+        temperature=temperature,
+        do_sample=temperature > 0,
+        return_full_text=False,  # Only return generated text
+        pad_token_id=tokenizer.pad_token_id,  # Explicitly set pad token
+    )
+
+    # Store model name in the pipeline object for compatibility
+    pipe.model_name = model_name
+
+    # Wrap in LangChain
+    llm = HuggingFacePipeline(pipeline=pipe)
+
+    # If this is a chat/instruct model, wrap in ChatHuggingFace to handle chat templates
+    if has_chat_template:
+        from langchain_huggingface import ChatHuggingFace
+        chat_llm = ChatHuggingFace(llm=llm)
+        # Store model_name on the wrapped object's pipeline for compatibility
+        chat_llm._model_name = model_name
+        print(f"[INFO] Wrapped in ChatHuggingFace for chat template support")
+        return chat_llm
+
+    # Store model_name on llm for compatibility
+    llm._model_name = model_name
+    return llm
 
 # --- Args Loader (update to pass vllm_port) ---
 def load_openai_llm_with_args(args, prefix=None, fixed_version=True, **kwargs):
