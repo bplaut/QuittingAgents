@@ -6,6 +6,7 @@ openai
 transformers
 torch
 langchain
+langchain-huggingface<1.0.0
 black
 python-dotenv
 tiktoken
