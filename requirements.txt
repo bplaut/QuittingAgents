@@ -12,7 +12,6 @@ python-dotenv
 tiktoken
 wikipedia
 chromadb
-scipy
 scikit-learn
 statsmodels
 matplotlib
@@ -22,4 +21,3 @@ accelerate
 bitsandbytes
 sentencepiece
 pydantic
-vllm
