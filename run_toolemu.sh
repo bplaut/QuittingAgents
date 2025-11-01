@@ -30,6 +30,7 @@ if [ $# -lt 6 ]; then
     echo "  evaluator_model:  Model name for evaluator"
     echo "  agent_type:       Agent type (e.g., naive, quit, simple_quit)"
     echo "  trunc_num:        Number of test cases to run"
+    echo "  additional_args:  Optional arguments like --quantization int8 (default: int4)"
     exit 1
 fi
 
@@ -84,9 +85,6 @@ python scripts/run.py \
     --track-costs \
     --trunc-num "$TRUNC_NUM" \
     -bs 1 \
-    --agent-quantization int4 \
-    --simulator-quantization int4 \
-    --evaluator-quantization int4 \
     $ADDITIONAL_ARGS \
     || { echo "Evaluation failed"; exit 1; }
 

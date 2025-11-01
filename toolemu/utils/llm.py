@@ -156,13 +156,6 @@ def llm_register_args(parser, prefix=None, shortprefix=None, defaults={}):
         default=request_timeout,
         help="Timeout for each request",
     )
-    # Add quantization for open-weight models
-    parser.add_argument(
-        f"--{prefix}quantization",
-        type=str,
-        default=None,
-        help="Quantization type for open-weight models (e.g., int4, int8)",
-    )
     # Add GPU memory utilization for open-weight models
     parser.add_argument(
         f"--{prefix}gpu-memory-utilization",

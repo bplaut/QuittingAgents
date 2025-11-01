@@ -46,6 +46,12 @@ parser.add_argument(
 )
 parser.add_argument("--batch-size", "-bs", type=int, default=1, help="batch size")
 parser.add_argument("--auto", "-auto", action="store_true", help="auto mode")
+parser.add_argument(
+    "--quantization",
+    type=str,
+    default="int4",
+    help="Quantization type for all models (int4, int8, none). API models ignore this.",
+)
 llm_register_args(parser, prefix="simulator")
 llm_register_args(parser, prefix="evaluator")
 args = parser.parse_args()
@@ -141,12 +147,11 @@ if args.trunc_num is not None:
     cmd += f" -tn {args.trunc_num}"
 if args.batch_size is not None:
     cmd += f" -bs {args.batch_size}"
-if hasattr(args, 'agent_quantization') and args.agent_quantization is not None:
-    cmd += f" --agent-quantization {args.agent_quantization}"
+if args.quantization is not None:
+    cmd += f" --agent-quantization {args.quantization}"
+    cmd += f" --simulator-quantization {args.quantization}"
 if hasattr(args, 'agent_gpu_memory_utilization') and args.agent_gpu_memory_utilization is not None:
     cmd += f" --agent-gpu-memory-utilization {args.agent_gpu_memory_utilization}"
-if hasattr(args, 'simulator_quantization') and args.simulator_quantization is not None:
-    cmd += f" --simulator-quantization {args.simulator_quantization}"
 if hasattr(args, 'simulator_max_seq_len') and args.simulator_max_seq_len is not None:
     cmd += f" --simulator-max-seq-len {args.simulator_max_seq_len}"
 if hasattr(args, 'simulator_gpu_memory_utilization') and args.simulator_gpu_memory_utilization is not None:
@@ -178,8 +183,8 @@ for ev in EVALUATORS.keys():
         cmd += f" --evaluator-model-name {args.evaluator_model_name}"
     if hasattr(args, 'evaluator_tensor_parallel_size') and args.evaluator_tensor_parallel_size is not None:
         cmd += f" --evaluator-tensor-parallel-size {args.evaluator_tensor_parallel_size}"
-    if hasattr(args, 'evaluator_quantization') and args.evaluator_quantization is not None:
-        cmd += f" --evaluator-quantization {args.evaluator_quantization}"
+    if args.quantization is not None:
+        cmd += f" --evaluator-quantization {args.quantization}"
     if hasattr(args, 'evaluator_max_tokens') and args.evaluator_max_tokens is not None:
         cmd += f" --evaluator-max-tokens {args.evaluator_max_tokens}"
     if args.track_costs:

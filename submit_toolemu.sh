@@ -1,6 +1,7 @@
 #!/bin/bash
 # Smart wrapper for run_toolemu.sh that automatically selects appropriate GPU nodes based on model sizes
 # Usage: ./submit_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num> [additional_args]
+# Example: ./submit_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-8B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 144 --quantization int8
 
 # Check that all required arguments are provided
 if [ $# -lt 6 ]; then
@@ -12,6 +13,7 @@ if [ $# -lt 6 ]; then
     echo "  evaluator_model:  Model name for evaluator"
     echo "  agent_type:       Agent type (e.g., naive, quit, simple_quit)"
     echo "  trunc_num:        Number of test cases to run"
+    echo "  additional_args:  Optional args like --quantization int8 (default: int4)"
     exit 1
 fi
 
