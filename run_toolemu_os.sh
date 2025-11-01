@@ -65,7 +65,7 @@ if [ "${SLURM_GPUS_PER_NODE:-0}" -gt 0 ] || [ "${SLURM_JOB_GPUS:-0}" -gt 0 ] || 
     GPU_MON_PID=$!
 fi
 
-# Run the evaluation using HuggingFace transformers
+# Run the evaluation (API models will ignore quantization args)
 echo "Running evaluation with models:"
 echo "  Agent: $AGENT_MODEL"
 echo "  Simulator: $SIMULATOR_MODEL"
@@ -80,6 +80,9 @@ python scripts/run.py \
     --track-costs \
     --trunc-num "$TRUNC_NUM" \
     -bs 1 \
+    --agent-quantization int4 \
+    --simulator-quantization int4 \
+    --evaluator-quantization int4 \
     $ADDITIONAL_ARGS \
     || { echo "Evaluation failed"; exit 1; }
 
