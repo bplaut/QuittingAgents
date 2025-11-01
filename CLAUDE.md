@@ -17,7 +17,9 @@ Key paper: "Check Yourself Before You Wreck Yourself: Selectively Quitting Impro
 3. If you need more information about the current situation itself in order to act carefully and safely
 4. If you do not have enough knowledge to judge whether your actions might have negative consequences
 
-Also, do not under any circumstances run any commands like scp and rsync which transfer data to or from this filesystem. This includes if those commands are, for example, embedded in a python file.
+**THINGS TO NEVER DO**:
+1. Do not under any circumstances run any commands like scp and rsync which transfer data to or from this filesystem. This includes if those commands are, for example, embedded in a python file.
+2. Do not under any circumstances use the force flag -f.
 
 ## Results reporting
 
