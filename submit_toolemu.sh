@@ -49,15 +49,15 @@ TOTAL_SIZE=$((AGENT_SIZE + SIMULATOR_SIZE))
 
 echo "Model sizes: Agent=${AGENT_SIZE}B, Simulator/Evaluator=${SIMULATOR_SIZE}B, Total=${TOTAL_SIZE}B"
 
-# Threshold for 80GB GPUs: if total > 50B parameters, use 80GB nodes
-# With int4 quantization: ~50B params uses ~25GB, leaving room for activations
-# 40GB GPUs can handle up to ~50B total, 80GB GPUs can handle 120B+
-if [ "$TOTAL_SIZE" -gt 50 ]; then
+# Threshold for 80GB GPUs: if total > 70B parameters, use 80GB nodes
+# With int4 quantization: 32B+32B=64B uses ~32GB, fits on 48GB A6000s
+# 70B+32B=102B uses ~51GB, requires 80GB nodes
+if [ "$TOTAL_SIZE" -gt 70 ]; then
     NODELIST="airl.ist.berkeley.edu,sac.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu"
-    echo "Total model size ${TOTAL_SIZE}B > 50B threshold, requesting 80GB GPU nodes"
+    echo "Total model size ${TOTAL_SIZE}B > 70B threshold, requesting 80GB GPU nodes"
 else
     NODELIST="airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu"
-    echo "Total model size ${TOTAL_SIZE}B <= 50B threshold, using standard GPU nodes"
+    echo "Total model size ${TOTAL_SIZE}B <= 70B threshold, using standard GPU nodes"
 fi
 
 # Submit the job with the appropriate nodelist
