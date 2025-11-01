@@ -42,7 +42,16 @@ ADDITIONAL_ARGS="${@:7}"
 eval "$(/nas/ucb/bplaut/miniconda3/bin/conda shell.bash hook)"
 conda activate llm-finetune || { echo "Failed to activate conda environment"; exit 1; }
 
-# Set HuggingFace token for accessing gated models
+# Load environment variables from .env file (including HuggingFace token)
+if [ -f "/nas/ucb/bplaut/QuittingAgents/.env" ]; then
+    export $(grep -v '^#' /nas/ucb/bplaut/QuittingAgents/.env | xargs)
+fi
+
+# Set HuggingFace token from environment variables for accessing gated models
+if [ -n "${HF_KEY:-}" ]; then
+    export HF_TOKEN="$HF_KEY"
+    export HUGGING_FACE_HUB_TOKEN="$HF_KEY"
+fi
 
 # Change to the correct directory
 cd /nas/ucb/bplaut/QuittingAgents || { echo "Failed to change directory"; exit 1; }
