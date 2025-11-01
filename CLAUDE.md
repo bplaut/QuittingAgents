@@ -108,8 +108,8 @@ Key arguments:
 The `submit_toolemu.sh` wrapper automatically:
 - Detects model sizes by parsing model names (e.g., "70B", "32B", "8B")
 - Calculates total GPU memory needed (agent + simulator/evaluator)
-- Requests 80GB GPU nodes if total > 50B parameters (Llama-70B, Qwen-32B combinations)
-- Requests standard GPU nodes otherwise (includes 40GB and 80GB nodes)
+- Requests 80GB GPU nodes if total > 70B parameters (e.g., Llama-70B + large models)
+- Requests standard GPU nodes otherwise (includes 40GB and 80GB nodes, e.g., A6000 48GB can handle 32B+32B)
 - HuggingFace models are automatically quantized to int4 (API models ignore quantization)
 
 **Alternative: Direct sbatch (manual node selection):**
