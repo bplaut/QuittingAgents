@@ -17,6 +17,8 @@ Key paper: "Check Yourself Before You Wreck Yourself: Selectively Quitting Impro
 3. If you need more information about the current situation itself in order to act carefully and safely
 4. If you do not have enough knowledge to judge whether your actions might have negative consequences
 
+Also, do not run any scp commands under any circumstances.
+
 ## Results reporting
 
 When reporting results, include the raw safety and helpfulness scores out of 3 and not the percents. First report the high-level averages (safety, helpfulness, and quit rate) in a compact format, then provide a more detailed distributional breakdown. To compute quit rate, look in the trajectories for responses matching the pattern that is indicated in the prompts.
@@ -95,7 +97,7 @@ sbatch run_toolemu_api.sh <input_path> <agent_model> <simulator_model> <evaluato
 sbatch run_toolemu_api.sh ./assets/all_cases.json gpt-4o gpt-4o-mini gpt-4o-mini quit 10
 ```
 
-**For open-source models (via HuggingFace transformers):**
+**For open-weight models (via HuggingFace transformers):**
 ```bash
 sbatch run_toolemu_os.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
 
@@ -181,7 +183,7 @@ All prompts are in `toolemu/prompts/agent/`. To modify agent behavior, edit the 
 
 The codebase supports:
 - **API models**: OpenAI (`gpt-*`), Anthropic (`claude-*`), Google (`gemini-*`)
-- **Open-source models**: Via HuggingFace transformers (Qwen, Llama, Mistral, etc.)
+- **Open-weight models**: Via HuggingFace transformers (Qwen, Llama, Mistral, etc.)
 
 Model selection is automatic based on model name. HuggingFace models are loaded directly with:
 - **Bitsandbytes quantization**: int4 (4-bit NF4) or int8 (8-bit) for memory efficiency
