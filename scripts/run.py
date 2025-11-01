@@ -141,10 +141,10 @@ if args.trunc_num is not None:
     cmd += f" -tn {args.trunc_num}"
 if args.batch_size is not None:
     cmd += f" -bs {args.batch_size}"
-if hasattr(args, 'agent_tensor_parallel_size') and args.agent_tensor_parallel_size is not None:
-    cmd += f" --agent-tensor-parallel-size {args.agent_tensor_parallel_size}"
-if hasattr(args, 'simulator_tensor_parallel_size') and args.simulator_tensor_parallel_size is not None:
-    cmd += f" --simulator-tensor-parallel-size {args.simulator_tensor_parallel_size}"
+if hasattr(args, 'agent_quantization') and args.agent_quantization is not None:
+    cmd += f" --agent-quantization {args.agent_quantization}"
+if hasattr(args, 'agent_gpu_memory_utilization') and args.agent_gpu_memory_utilization is not None:
+    cmd += f" --agent-gpu-memory-utilization {args.agent_gpu_memory_utilization}"
 if hasattr(args, 'simulator_quantization') and args.simulator_quantization is not None:
     cmd += f" --simulator-quantization {args.simulator_quantization}"
 if hasattr(args, 'simulator_max_seq_len') and args.simulator_max_seq_len is not None:

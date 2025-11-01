@@ -89,22 +89,28 @@ Key arguments:
 
 ### SLURM Cluster Usage
 
-**For API-based models (OpenAI, Anthropic):**
+**For GPU workloads (HuggingFace models or mixed API + HuggingFace):**
 ```bash
-sbatch run_toolemu_api.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
+sbatch run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
 
-# Example:
-sbatch run_toolemu_api.sh ./assets/all_cases.json gpt-4o gpt-4o-mini gpt-4o-mini quit 10
+# Example with HuggingFace models (auto-quantized to int4):
+sbatch run_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+
+# Example with mixed API + HuggingFace:
+sbatch run_toolemu.sh ./assets/all_cases.json gpt-4o-mini Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+
+# HuggingFace models are automatically quantized to int4 (API models ignore quantization)
+# Requests 1 GPU on high-priority nodes
 ```
 
-**For open-weight models (via HuggingFace transformers):**
+**For CPU-only workloads (API models only):**
 ```bash
-sbatch run_toolemu_os.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
+sbatch no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
 
-# Example with quantization:
-sbatch run_toolemu_os.sh ./assets/all_cases.json Qwen/Qwen2.5-7B-Instruct Qwen/Qwen2.5-7B-Instruct gpt-4o-mini quit 10
+# Example (all API models):
+sbatch no_gpu_run_toolemu.sh ./assets/all_cases.json gpt-4o gpt-4o-mini gpt-4o-mini quit 10
 
-# Models are loaded directly with bitsandbytes quantization (int4/int8) for memory efficiency
+# Does not request GPUs, suitable for pure API workloads
 ```
 
 ### Testing

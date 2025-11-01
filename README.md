@@ -78,16 +78,16 @@ python scripts/run.py --agent-model gpt-4o-mini --agent-type quit --trunc-num 2 
 
 You can run large-scale experiments on a cluster using the provided `sbatch` scripts.
 
-**Example (Open-weight models via HuggingFace transformers):**
+**Example (HuggingFace models or mixed API + HuggingFace):**
 
 ```bash
-sbatch scripts/run_toolemu_os.sh exp_qwen ./assets/all_cases.json Qwen/Qwen3-8B quit 2
+sbatch run_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 2
 ```
 
-**Example (API models):**
+**Example (API models only - no GPU):**
 
 ```bash
-sbatch scripts/run_toolemu_api.sh exp_api ./assets/all_cases.json gpt-4o quit 2
+sbatch no_gpu_run_toolemu.sh ./assets/all_cases.json gpt-4o gpt-4o-mini gpt-4o-mini quit 2
 ```
 
 Logs will be saved in the `logs/` directory, and outputs in `dumps/`.
