@@ -89,18 +89,34 @@ Key arguments:
 
 ### SLURM Cluster Usage
 
-**For GPU workloads (HuggingFace models or mixed API + HuggingFace):**
+**Recommended: Use the smart wrapper script for GPU workloads**
 ```bash
-sbatch run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
+./submit_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
 
 # Example with HuggingFace models (auto-quantized to int4):
-sbatch run_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+./submit_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+
+# Example with large models (automatically requests 80GB GPU nodes):
+./submit_toolemu.sh ./assets/all_cases.json meta-llama/Llama-3.1-70B-Instruct Qwen/Qwen3-32B Qwen/Qwen3-32B quit 144
 
 # Example with mixed API + HuggingFace:
-sbatch run_toolemu.sh ./assets/all_cases.json gpt-4o-mini Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+./submit_toolemu.sh ./assets/all_cases.json gpt-4o-mini Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+```
 
-# HuggingFace models are automatically quantized to int4 (API models ignore quantization)
-# Requests 1 GPU on high-priority nodes
+The `submit_toolemu.sh` wrapper automatically:
+- Detects model sizes by parsing model names (e.g., "70B", "32B", "8B")
+- Calculates total GPU memory needed (agent + simulator/evaluator)
+- Requests 80GB GPU nodes if total > 50B parameters (Llama-70B, Qwen-32B combinations)
+- Requests standard GPU nodes otherwise (includes 40GB and 80GB nodes)
+- HuggingFace models are automatically quantized to int4 (API models ignore quantization)
+
+**Alternative: Direct sbatch (manual node selection):**
+```bash
+# For small models (standard nodes):
+sbatch --nodes=1 --nodelist=airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu run_toolemu.sh ./assets/all_cases.json <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
+
+# For large models (80GB nodes only):
+sbatch --nodes=1 --nodelist=airl.ist.berkeley.edu,sac.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu run_toolemu.sh ./assets/all_cases.json <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
 ```
 
 **For CPU-only workloads (API models only):**

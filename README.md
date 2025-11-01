@@ -78,15 +78,24 @@ python scripts/run.py --agent-model gpt-4o-mini --agent-type quit --trunc-num 2 
 
 You can run large-scale experiments on a cluster using the provided `sbatch` scripts.
 
-**Example (HuggingFace models or mixed API + HuggingFace):**
+**Recommended: Use the smart wrapper for automatic GPU node selection:**
 
 ```bash
-sbatch run_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 2
+./submit_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 2
+
+# For large models (automatically selects 80GB GPU nodes):
+./submit_toolemu.sh ./assets/all_cases.json meta-llama/Llama-3.1-70B-Instruct Qwen/Qwen3-32B Qwen/Qwen3-32B quit 144
 ```
 
-**Example (API models only - no GPU):**
+The wrapper automatically detects model sizes and requests appropriate GPU nodes (80GB for large models, standard for smaller models).
+
+**Alternative: Direct sbatch calls**
 
 ```bash
+# HuggingFace models or mixed API + HuggingFace (manual node selection):
+sbatch --nodes=1 --nodelist=<node-list> run_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 2
+
+# API models only (no GPU):
 sbatch no_gpu_run_toolemu.sh ./assets/all_cases.json gpt-4o gpt-4o-mini gpt-4o-mini quit 2
 ```
 
