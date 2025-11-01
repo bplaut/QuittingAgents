@@ -53,7 +53,7 @@ Set your API keys in a `.env` file:
 OPENAI_API_KEY=<your-key>
 ```
 
-(Optional) For open-source models (e.g., Qwen3), ensure `vLLM` or equivalent backend is installed.
+(Optional) For open-weight models (e.g., Qwen, Llama), HuggingFace transformers and bitsandbytes are used for local inference.
 
 ---
 
@@ -78,7 +78,7 @@ python scripts/run.py --agent-model gpt-4o-mini --agent-type quit --trunc-num 2 
 
 You can run large-scale experiments on a cluster using the provided `sbatch` scripts.
 
-**Example (Open-source models via vLLM):**
+**Example (Open-weight models via HuggingFace transformers):**
 
 ```bash
 sbatch scripts/run_toolemu_os.sh exp_qwen ./assets/all_cases.json Qwen/Qwen3-8B quit 2
