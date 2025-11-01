@@ -8,7 +8,6 @@ from langchain_anthropic import ChatAnthropic as LangchainChatAnthropic
 from langchain_openai import ChatOpenAI as LangchainChatOpenAI
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_community.chat_models.openai import convert_dict_to_message
-from langchain_community.llms import VLLM as LangchainVLLM
 from langchain_openai import OpenAI
 from langchain_core.outputs import ChatResult, ChatGeneration
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ChatMessage
@@ -25,20 +24,18 @@ from langchain_community.chat_models.anthropic import convert_messages_to_prompt
 # --- Model Environment Manager ---
 class ModelEnvManager:
     """
-    Manages environment variables for OpenAI/vLLM switching.
-    
+    Manages environment variables for different model types.
+
     API Priority for GPT models:
     1. OpenAI API (https://api.openai.com/v1) - Official OpenAI service
     2. OpenRouter (https://openrouter.ai/api/v1) - Third-party service providing access to various models
-    
-    For non-GPT models, the manager handles switching between local vLLM and external APIs.
+
+    For open-weight models, uses HuggingFace transformers for local inference.
     """
     _real_openai_api_key = None
     _real_openai_api_base = None
     _real_openrouter_api_key = None
     _real_openrouter_api_base = None
-    VLLM_LOCAL_API_BASE = "http://127.0.0.1:8000/v1"
-    VLLM_LOCAL_API_KEY = "EMPTY"
     _current_model = None
 
     @classmethod
@@ -70,12 +67,10 @@ class ModelEnvManager:
         # If we're already set for this model, no need to change
         if cls._current_model == model_name:
             return
-            
-        if cls.is_vllm_model(model_name):
-            os.environ["OPENAI_API_BASE"] = cls.VLLM_LOCAL_API_BASE
-            os.environ["OPENAI_API_KEY"] = cls.VLLM_LOCAL_API_KEY
-        else:
-            # Restore real API keys (prefer OpenAI over OpenRouter)
+
+        # For open-weight models, no API keys needed (local inference)
+        # For API models, restore real API keys (prefer OpenRouter over OpenAI)
+        if not cls.is_open_weight_model(model_name):
             if cls._real_openrouter_api_key is not None:
                 os.environ["OPENAI_API_BASE"] = cls._real_openrouter_api_base
                 os.environ["OPENAI_API_KEY"] = cls._real_openrouter_api_key
@@ -85,13 +80,14 @@ class ModelEnvManager:
             else:
                 os.environ.pop("OPENAI_API_BASE", None)
                 os.environ.pop("OPENAI_API_KEY", None)
-                
+
         cls._current_model = model_name
 
     @staticmethod
-    def is_vllm_model(model_name: str) -> bool:
-        vllm_keywords = ["qwen", "llama", "mistral"]
-        return any(k in model_name.lower() for k in vllm_keywords)
+    def is_open_weight_model(model_name: str) -> bool:
+        """Check if a model name indicates an open-weight HuggingFace model."""
+        open_weight_keywords = ["qwen", "llama", "mistral"]
+        return any(k in model_name.lower() for k in open_weight_keywords)
 
     @staticmethod
     def supports_stop_parameter(model_name: str) -> bool:
@@ -104,8 +100,8 @@ class ModelEnvManager:
         # GPT models don't support stop parameter
         if model_name.lower().startswith("gpt"):
             return False
-        # Local vLLM models generally support stop parameter
-        if ModelEnvManager.is_vllm_model(model_name):
+        # Open-weight models generally support stop parameter
+        if ModelEnvManager.is_open_weight_model(model_name):
             return True
         # For other models (including OpenRouter models), assume they support it
         return True
@@ -160,89 +156,42 @@ def llm_register_args(parser, prefix=None, shortprefix=None, defaults={}):
         default=request_timeout,
         help="Timeout for each request",
     )
-    # Add tensor_parallel_size for vLLM models (open source)
-    parser.add_argument(
-        f"--{prefix}tensor-parallel-size",
-        type=int,
-        default=1,
-        help="Number of GPUs to use for vLLM open source models (tensor parallelism)",
-    )
-    # Add quantization for vLLM models (open source)
+    # Add quantization for open-weight models
     parser.add_argument(
         f"--{prefix}quantization",
         type=str,
         default=None,
-        help="Quantization type for vLLM open source models (e.g., awq-int4, int8)",
+        help="Quantization type for open-weight models (e.g., int4, int8)",
     )
-    # Add GPU memory utilization for vLLM models (open source)
+    # Add GPU memory utilization for open-weight models
     parser.add_argument(
         f"--{prefix}gpu-memory-utilization",
         type=float,
         default=0.9,
-        help="GPU memory utilization for vLLM open source models (0.0 to 1.0)",
-    )
-    # Add max sequence length for vLLM models (open source)
-    parser.add_argument(
-        f"--{prefix}max-seq-len",
-        type=int,
-        default=None,
-        help="Maximum sequence length for vLLM open source models",
-    )
-    parser.add_argument(
-        f"--{prefix}vllm-port",
-        type=int,
-        default=8000,
-        help="Port for online vLLM server (OpenAI-compatible API)",
+        help="GPU memory utilization for open-weight models (0.0 to 1.0)",
     )
 
-def get_tensor_parallel_size(args, prefix=None):
-    # Try to get from args, then env, else default to 1
-    if prefix is None:
-        prefix = ""
-    else:
-        prefix = f"{prefix}_"
-    arg_name = f"{prefix}tensor_parallel_size"
-    if hasattr(args, arg_name):
-        val = getattr(args, arg_name)
-        if val is not None:
-            return val
-    # Try environment variable
-    val = os.environ.get("TENSOR_PARALLEL_SIZE")
-    if val is not None:
-        try:
-            return int(val)
-        except Exception:
-            pass
-    return 1
-
-# --- Main Loader (now always online for vLLM) ---
-def load_openai_llm(model_name: str = "gpt-4o-mini", tensor_parallel_size=None, quantization=None, gpu_memory_utilization=None, max_seq_len=None, vllm_port=8000, **kwargs) -> BaseLanguageModel:
+# --- Main Loader ---
+def load_openai_llm(model_name: str = "gpt-4o-mini", quantization=None, gpu_memory_utilization=None, **kwargs) -> BaseLanguageModel:
     # Set environment variables for the model (this handles GPT models properly)
     ModelEnvManager.set_env_for_model(model_name)
-    
+
     # Handle GPT models - they should use OpenAI API or OpenRouter
     if model_name.lower().startswith("gpt"):
-        # Remove vLLM-specific kwargs for GPT models
-        kwargs.pop("tensor_parallel_size", None)
-        kwargs.pop("quantization", None)
-        kwargs.pop("vllm_kwargs", None)
+        # Remove temperature from kwargs for GPT models (handled separately)
         kwargs.pop("temperature", None)
-        
+
         llm = ChatOpenAI(model_name=model_name, **kwargs)
         llm.model_name = model_name
         return llm
-    
-    # OpenAI (non-GPT models)
+
+    # OpenAI (non-GPT models) and Anthropic
     if any(model_name.lower().startswith(prefix) for prefix in ["openai", "anthropic", "text-davinci", "gpt4o", "o"]):
-        # Remove vllm-specific kwargs
-        kwargs.pop("tensor_parallel_size", None)
-        kwargs.pop("quantization", None)
-        kwargs.pop("vllm_kwargs", None)
         llm = ChatOpenAI(model_name=model_name, **kwargs)
         llm.model_name = model_name
         return llm
-    # HuggingFace transformers (open source models)
-    elif "/" in model_name or ModelEnvManager.is_vllm_model(model_name):
+    # HuggingFace transformers (open-weight models)
+    elif "/" in model_name or ModelEnvManager.is_open_weight_model(model_name):
         # HuggingFace model names typically contain "/" (e.g., "meta-llama/Llama-3.1-8B")
         # Also handle legacy keywords (qwen, llama, mistral)
         return _load_transformers_model(
@@ -258,9 +207,6 @@ def load_openai_llm(model_name: str = "gpt-4o-mini", tensor_parallel_size=None, 
     # Fallback: try OpenAI, but warn
     else:
         print(f"[WARNING] Unknown model type for '{model_name}', defaulting to OpenAI-compatible loading.")
-        kwargs.pop("tensor_parallel_size", None)
-        kwargs.pop("quantization", None)
-        kwargs.pop("vllm_kwargs", None)
         llm = ChatOpenAI(model_name=model_name, **kwargs)
         llm.model_name = model_name
         return llm
@@ -304,16 +250,27 @@ def _load_transformers_model(
     if has_chat_template:
         print(f"[INFO] Model has chat template - will be applied to prompts")
 
-    # Build model loading kwargs (simple syntax like generate_text.py)
-    model_kwargs = {}
+    # Build model loading kwargs
+    model_kwargs = {
+        "trust_remote_code": trust_remote_code,
+    }
 
-    # Add quantization (simplified like generate_text.py:45)
+    # Add quantization using proper BitsAndBytesConfig
     if quantization in ["int4", "nf4"]:
-        model_kwargs["load_in_4bit"] = True
-        print("[INFO] Using 4-bit quantization")
+        print("[INFO] Using 4-bit quantization with BitsAndBytesConfig")
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+        )
+        model_kwargs["quantization_config"] = bnb_config
     elif quantization == "int8":
-        model_kwargs["load_in_8bit"] = True
-        print("[INFO] Using 8-bit quantization")
+        print("[INFO] Using 8-bit quantization with BitsAndBytesConfig")
+        bnb_config = BitsAndBytesConfig(
+            load_in_8bit=True,
+        )
+        model_kwargs["quantization_config"] = bnb_config
     else:
         # No quantization - use specified dtype
         dtype_map = {
@@ -321,9 +278,9 @@ def _load_transformers_model(
             "bfloat16": torch.bfloat16,
             "float32": torch.float32,
         }
-        model_kwargs["dtype"] = dtype_map.get(torch_dtype, torch.float16)
+        model_kwargs["torch_dtype"] = dtype_map.get(torch_dtype, torch.float16)
 
-    # Add device_map (exactly like generate_text.py:45)
+    # Add device_map
     if torch.cuda.is_available():
         model_kwargs["device_map"] = "auto"
         print(f"[INFO] Using device_map='auto' with {torch.cuda.device_count()} GPU(s)")
@@ -365,7 +322,7 @@ def _load_transformers_model(
     llm._model_name = model_name
     return llm
 
-# --- Args Loader (update to pass vllm_port) ---
+# --- Args Loader ---
 def load_openai_llm_with_args(args, prefix=None, fixed_version=True, **kwargs):
     if prefix is None:
         prefix = ""
@@ -379,53 +336,33 @@ def load_openai_llm_with_args(args, prefix=None, fixed_version=True, **kwargs):
     temperature = get_arg("temperature", kwargs.get("temperature", 0.0))
     request_timeout = get_arg("request_timeout", kwargs.get("request_timeout", 60))
     max_tokens = get_arg("max_tokens", kwargs.get("max_tokens", None))
-    tensor_parallel_size = get_arg("tensor_parallel_size", None)
     quantization = get_arg("quantization", None)
     gpu_memory_utilization = get_arg("gpu_memory_utilization", None)
-    max_seq_len = get_arg("max_seq_len", None)
-    vllm_port = get_arg("vllm_port", 8000)
-    
-    # Always check if it's a vLLM model and pass appropriate args
-    if ModelEnvManager.is_vllm_model(model_name):
-        return load_openai_llm(
-            model_name=model_name,
-            temperature=temperature,
-            request_timeout=request_timeout,
-            max_tokens=max_tokens,
-            tensor_parallel_size=tensor_parallel_size,
-            quantization=quantization,
-            gpu_memory_utilization=gpu_memory_utilization,
-            max_seq_len=max_seq_len,
-            vllm_port=vllm_port,
-            **kwargs,
-        )
-    elif model_name.lower().startswith("gpt"):
-        # GPT models should not get vLLM-specific arguments
-        return load_openai_llm(
-            model_name=model_name,
-            temperature=temperature,
-            request_timeout=request_timeout,
-            max_tokens=max_tokens,
-            **kwargs,
-        )
-    else:
-        # Remove vLLM-specific args for non-vLLM models
-        return load_openai_llm(
-            model_name=model_name,
-            temperature=temperature,
-            request_timeout=request_timeout,
-            max_tokens=max_tokens,
-            **kwargs,
-        )
+
+    return load_openai_llm(
+        model_name=model_name,
+        temperature=temperature,
+        request_timeout=request_timeout,
+        max_tokens=max_tokens,
+        quantization=quantization,
+        gpu_memory_utilization=gpu_memory_utilization,
+        **kwargs,
+    )
 
 # --- Model Category Utility (keep for compatibility) ---
 def get_model_category(llm: BaseLanguageModel):
+    # Import here to avoid circular imports
+    try:
+        from langchain_huggingface import ChatHuggingFace, HuggingFacePipeline
+        if isinstance(llm, (ChatHuggingFace, HuggingFacePipeline)):
+            return "huggingface"
+    except ImportError:
+        pass
+
     if isinstance(llm, ChatOpenAI):
         return "openai"
     elif isinstance(llm, ChatAnthropic):
         return "claude"
-    elif isinstance(llm, LangchainVLLM):
-        return "vllm"
     elif hasattr(llm, '_llm_type') and llm._llm_type == "mock":
         return "openai"  # Treat mock LLMs as OpenAI for testing
     else:

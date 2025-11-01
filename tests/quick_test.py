@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from toolemu.utils.json_utils import RobustJSONEncoder
 from toolemu.utils.io import get_output_dir_and_prefix, get_run_id
 import os
-from toolemu.utils.llm import get_tensor_parallel_size, ModelEnvManager
+from toolemu.utils.llm import ModelEnvManager
 
 load_dotenv()
 
@@ -73,8 +73,8 @@ model_tests = [
     },
     # {
     #     "name": "Qwen/Qwen2.5-1.5B-Instruct",
-    #     "desc": "checking open source models using vllm...",
-    #     "type": "vllm"
+    #     "desc": "checking open-weight models using transformers...",
+    #     "type": "huggingface"
     # },
     {
         "name": "claude-3-5-sonnet-latest",
@@ -83,10 +83,9 @@ model_tests = [
     },
     {
         "name": "Qwen/Qwen3-8B",
-        "desc": "checking open source Qwen3-8B with 2 GPUs and quantization...",
-        "type": "vllm",
-        "tensor_parallel_size": 2,
-        "quantization": "awq-int4"  # or "int8" if int4 is not supported
+        "desc": "checking open-weight Qwen3-8B with quantization...",
+        "type": "huggingface",
+        "quantization": "int4"
     }
 ]
 
@@ -107,9 +106,9 @@ for test in model_tests:
             request_timeout=60,
             max_tokens=128,
         )
-        # Only pass tensor_parallel_size for vLLM models
-        if ModelEnvManager.is_vllm_model(agent_llm_name):
-            llm_kwargs["tensor_parallel_size"] = test.get("tensor_parallel_size", get_tensor_parallel_size(os.environ, None))
+        # Add quantization for open-weight models if specified
+        if "quantization" in test:
+            llm_kwargs["quantization"] = test["quantization"]
         agent_llm = load_openai_llm(**llm_kwargs)
         print(f"Loaded agent_llm: {agent_llm_name}")
         simulator_llm_obj = load_openai_llm(

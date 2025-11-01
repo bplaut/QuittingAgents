@@ -13,7 +13,7 @@ set -e
 # Print commands being executed
 # set -x
 
-# Disable torch.compile for vLLM to avoid compilation errors with Qwen models
+# Disable torch.compile to avoid compilation errors with some models
 export TORCH_COMPILE_DISABLE=1
 
 # Usage: sbatch run_toolemu_api.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>

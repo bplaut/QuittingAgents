@@ -136,8 +136,8 @@ class StandardVirtualAgentExecutorWithToolkit(AgentExecutorWithToolkit):
         tools = agent.get_all_tools(toolkits)
         tool_names = [tool.name for tool in tools]
         
-        # Force chat format for vLLM models
-        if hasattr(llm_simulator, 'model_name') and ModelEnvManager.is_vllm_model(llm_simulator.model_name):
+        # Force chat format for open-weight models
+        if hasattr(llm_simulator, 'model_name') and ModelEnvManager.is_open_weight_model(llm_simulator.model_name):
             use_chat_format = True
 
         simulator_prompt = cls.create_simulator_prompt(use_chat_format=use_chat_format)
@@ -287,11 +287,13 @@ class StandardVirtualAgentExecutorWithToolkit(AgentExecutorWithToolkit):
         if self.cost_tracker:
             input_tokens = get_num_tokens(str(simulator_inputs))
             output_tokens = get_num_tokens(llm_output)
-            # Safely get model name - VLLM objects don't have model_name attribute
+            # Safely get model name - some model objects don't have model_name attribute
             model_name = getattr(self.llm_simulator_chain.llm, 'model_name', None)
             if model_name is None:
-                # Try to get model name from model attribute for VLLM
-                model_name = getattr(self.llm_simulator_chain.llm, 'model', 'unknown_model')
+                # Try to get model name from model attribute or _model_name
+                model_name = getattr(self.llm_simulator_chain.llm, 'model', None)
+                if model_name is None:
+                    model_name = getattr(self.llm_simulator_chain.llm, '_model_name', 'unknown_model')
             print(f"[DEBUG] Emulator cost tracking: model={model_name}, input_tokens={input_tokens}, output_tokens={output_tokens}")
             if input_tokens > 0 or output_tokens > 0:
                 self.cost_tracker.add_token_usage('emulator', model_name, input_tokens, output_tokens)

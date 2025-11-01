@@ -154,12 +154,12 @@ def main():
                 failed_item = case_with_idx
                 break
             except Exception as e:
-                # Handle OpenAI/Anthropic/vLLM/network errors and prompt length errors
+                # Handle OpenAI/Anthropic/HuggingFace/network errors and prompt length errors
                 import sys
                 import traceback
                 error_str = str(e)
                 tb_str = traceback.format_exc()
-                # Handle vLLM prompt too long error (ValueError)
+                # Handle prompt too long error (ValueError)
                 if isinstance(e, ValueError) and ("longer than the maximum model length" in error_str or "is too long and exceeds limit" in error_str):
                     print(f"{case_idx}: Prompt too long for model, skipping. {error_str}")
                     outputs = {"error": error_str, "error_type": type(e).__name__}

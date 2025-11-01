@@ -268,8 +268,10 @@ class BaseTrajEvaluator(BasePromptExecutorWithCritique):
         # Track evaluator costs
         model_name = getattr(self._llm, 'model_name', None)
         if model_name is None:
-            # Try to get model name from model attribute for VLLM
-            model_name = getattr(self._llm, 'model', 'unknown_model')
+            # Try to get model name from model attribute or _model_name
+            model_name = getattr(self._llm, 'model', None)
+            if model_name is None:
+                model_name = getattr(self._llm, '_model_name', 'unknown_model')
         if model_name:
             # Get input tokens from the full prompt
             input_tokens = get_num_tokens(getattr(self, '_last_full_prompt', ''))
