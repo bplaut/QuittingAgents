@@ -4,7 +4,7 @@
 #SBATCH --error=logs/exp_%x_%j.err
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --qos=default
 # Note: --nodelist should be passed as a command-line argument to sbatch
 
