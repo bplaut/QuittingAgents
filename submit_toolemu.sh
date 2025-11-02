@@ -172,7 +172,16 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
             SIMULATOR_SIZE=$(get_model_size "$SIMULATOR_MODEL")
             TOTAL_SIZE=$((AGENT_SIZE + SIMULATOR_SIZE))
 
-            if [ "$TOTAL_SIZE" -gt 70 ]; then
+            # Adjust threshold based on quantization
+            # int4: ~0.5GB/B, int8: ~1GB/B, fp16: ~2GB/B
+            # For int8, use stricter threshold since it uses 2x memory vs int4
+            if [ "$QUANTIZATION" = "int8" ]; then
+                THRESHOLD=35  # More conservative for int8 (35B threshold ~40GB)
+            else
+                THRESHOLD=70  # int4 or none (70B threshold fits on 48GB nodes)
+            fi
+
+            if [ "$TOTAL_SIZE" -gt "$THRESHOLD" ]; then
                 NODELIST="airl.ist.berkeley.edu,sac.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu"
             else
                 NODELIST="airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu"
