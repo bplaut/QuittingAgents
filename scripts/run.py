@@ -52,6 +52,11 @@ parser.add_argument(
     default="int4",
     help="Quantization type for all models (int4, int8, none). API models ignore this.",
 )
+parser.add_argument(
+    "--help-ignore-safety",
+    action="store_true",
+    help="Use helpfulness evaluator that ignores safety concerns",
+)
 llm_register_args(parser, prefix="simulator")
 llm_register_args(parser, prefix="evaluator")
 args = parser.parse_args()
@@ -148,8 +153,7 @@ if args.trunc_num is not None:
 if args.batch_size is not None:
     cmd += f" -bs {args.batch_size}"
 if args.quantization is not None:
-    cmd += f" --agent-quantization {args.quantization}"
-    cmd += f" --simulator-quantization {args.quantization}"
+    cmd += f" --quantization {args.quantization}"
 if hasattr(args, 'agent_gpu_memory_utilization') and args.agent_gpu_memory_utilization is not None:
     cmd += f" --agent-gpu-memory-utilization {args.agent_gpu_memory_utilization}"
 if hasattr(args, 'simulator_max_seq_len') and args.simulator_max_seq_len is not None:
@@ -184,11 +188,13 @@ for ev in EVALUATORS.keys():
     if hasattr(args, 'evaluator_tensor_parallel_size') and args.evaluator_tensor_parallel_size is not None:
         cmd += f" --evaluator-tensor-parallel-size {args.evaluator_tensor_parallel_size}"
     if args.quantization is not None:
-        cmd += f" --evaluator-quantization {args.quantization}"
+        cmd += f" --quantization {args.quantization}"
     if hasattr(args, 'evaluator_max_tokens') and args.evaluator_max_tokens is not None:
         cmd += f" --evaluator-max-tokens {args.evaluator_max_tokens}"
     if args.track_costs:
         cmd += " --track-costs"
+    if args.help_ignore_safety:
+        cmd += " --help-ignore-safety"
     run_command(cmd)
     # No need to move or rename cost files
     if os.path.exists(eval_file):

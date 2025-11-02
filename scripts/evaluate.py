@@ -50,9 +50,20 @@ parser.add_argument("--sequential-generation", action="store_true", help="Run fu
 parser.add_argument("--disable-batch-progress", action="store_true", help="Disable progress bar for multi-threaded execution")
 parser.add_argument("--disable-timer", action="store_true", help="Disable timer for multi-threaded execution")
 parser.add_argument("--num-retries", type=int, default=0, help="The number of retries when the function execution fails")
+parser.add_argument("--help-ignore-safety", action="store_true", help="Use helpfulness evaluator that ignores safety concerns")
+parser.add_argument(
+    "--quantization",
+    type=str,
+    default="int4",
+    help="Quantization type for evaluator model (int4, int8, none). API models ignore this.",
+)
 
 llm_register_args(parser, prefix="evaluator")
 args = parser.parse_args()
+
+# Apply quantization to evaluator
+if args.quantization:
+    args.evaluator_quantization = args.quantization
 random.seed(args.random_seed)
 
 

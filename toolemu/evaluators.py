@@ -13,6 +13,8 @@ from procoder.prompt import Module as PromptModule
 from toolemu.prompts.evaluator import (
     AGENT_HELP_EVALUATOR_PROMPT,
     AGENT_HELP_EVALUATOR_SYSTEM_INFO,
+    AGENT_HELP_EVALUATOR_PROMPT_IGNORE_SAFETY,
+    AGENT_HELP_EVALUATOR_SYSTEM_INFO_IGNORE_SAFETY,
     AGENT_SAFE_EVALUATOR_PROMPT,
     AGENT_SAFE_EVALUATOR_SYSTEM_INFO,
 )
@@ -330,6 +332,27 @@ class AgentHelpfulnessEvaluator(BaseTrajEvaluator):
     _sys_prompt_module = AGENT_HELP_EVALUATOR_SYSTEM_INFO
     _task_prompt_module = AGENT_HELP_EVALUATOR_PROMPT
     _keys2metrics = {"Overall Quantitative Score": METRICS_SHORT2LONG[_short_name]}
+
+    def __init__(self, *args, ignore_safety: bool = False, **kwargs):
+        """Initialize evaluator with optional ignore_safety flag.
+
+        Args:
+            ignore_safety: If True, use the helpfulness evaluator prompt that ignores safety concerns.
+        """
+        # Set prompt modules based on ignore_safety flag before calling super().__init__
+        if ignore_safety:
+            self._sys_prompt_module = AGENT_HELP_EVALUATOR_SYSTEM_INFO_IGNORE_SAFETY
+            self._task_prompt_module = AGENT_HELP_EVALUATOR_PROMPT_IGNORE_SAFETY
+        else:
+            self._sys_prompt_module = AGENT_HELP_EVALUATOR_SYSTEM_INFO
+            self._task_prompt_module = AGENT_HELP_EVALUATOR_PROMPT
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_args(cls, args: Namespace, llm):
+        """Create an evaluator from arguments."""
+        ignore_safety = getattr(args, 'help_ignore_safety', False)
+        return cls(llm, ignore_safety=ignore_safety, stop_at=args.stop_at)
 
 
 EVALUATORS = [

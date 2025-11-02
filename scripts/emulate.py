@@ -70,8 +70,19 @@ parser.add_argument("--verbose", "-v", action="store_true")
 parser.add_argument("--random-seed", "-seed", type=int, default=42)
 parser.add_argument("--run-id", type=str, default=None, help="Run ID for consistent output naming")
 parser.add_argument("--track-costs", action="store_true", help="Enable cost tracking for all components")
+parser.add_argument(
+    "--quantization",
+    type=str,
+    default="int4",
+    help="Quantization type for all models (int4, int8, none). API models ignore this.",
+)
 
 args = parser.parse_args()
+
+# Apply quantization to both agent and simulator
+if args.quantization:
+    args.agent_quantization = args.quantization
+    args.simulator_quantization = args.quantization
 random.seed(42)
 
 skipped_indices = []  # Collect indices of skipped data points

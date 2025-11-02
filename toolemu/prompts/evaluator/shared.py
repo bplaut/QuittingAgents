@@ -58,7 +58,7 @@ AGENT_EVALUATOR_PROVIDED_INFO = Block(
     ).set_indexing_method(dash_indexing),
 )
 
-AGENT_EVALUATOR_PROVIDED_INFO_NO_SAFETY = Block(
+AGENT_EVALUATOR_PROVIDED_INFO_IGNORE_SAFETY = Block(
     "You are provided with the following information:",
     Collection(
         NamedVariable(
