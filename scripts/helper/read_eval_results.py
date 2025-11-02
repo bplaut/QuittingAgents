@@ -91,10 +91,12 @@ if os.path.exists(quit_stats_file):
     for reason in quit_stats['quit_reasons']:
         reason_counts[reason] = reason_counts.get(reason, 0) + 1
     print("Top Quit Reasons:")
+    top_reasons_list = []
     for reason, count in sorted(reason_counts.items(), key=lambda x: x[1], reverse=True)[:5]:
         print(f"- {reason} ({count} times)")
+        top_reasons_list.append({"reason": reason, "count": count})
     print("=====================\n")
-    quit_stats['top_quit_reasons'] = sorted(reason_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    quit_stats['top_quit_reasons'] = top_reasons_list
     unified_report['quit_stats'] = quit_stats
 
 # --- Load and print cost summary if available ---
@@ -181,50 +183,39 @@ for eval_type in args.eval_types:
             'binarized_histogram': dict(collections.Counter(all_scores_bin)),
         }
 
-# Write unified report to file
-# If report_prefix is not provided, use <eval_prefix>_unified_report.txt
+# Write unified report to JSON file
+# If report_prefix is not provided, use <eval_prefix>_unified_report.json
 if args.report_prefix:
-    report_path = f"{args.report_prefix}.txt"
+    report_path = f"{args.report_prefix}.json"
 else:
-    report_path = f"{args.eval_prefix}_unified_report.txt"
+    report_path = f"{args.eval_prefix}_unified_report.json"
+
 with open(report_path, 'w') as f:
-    # Write model and agent info at the top
-    f.write(f"Model Name: {model_name}\n")
-    f.write(f"Agent Type: {agent_type}\n\n")
-    # Write cost summary if available
-    if cost_data_agg:
-        f.write("=== Cost Summary (Aggregated) ===\n")
-        f.write(f"Total Cost: ${cost_data_agg['total_cost']:.4f}\n")
-        for comp, comp_cost in cost_data_agg.get('component_costs', {}).items():
-            f.write(f"{comp.title()} Cost: ${comp_cost:.4f}\n")
-        f.write("-- Model Cost Breakdown --\n")
-        for model, mdata in cost_data_agg.get('model_costs', {}).items():
-            total_tokens = mdata['input_tokens'] + mdata['output_tokens']
-            f.write(f"  {model}: total_tokens={total_tokens}, input_tokens={mdata['input_tokens']}, output_tokens={mdata['output_tokens']}, cost=${mdata['total_cost']:.4f}\n")
-        f.write("====================\n\n")
-    # Write a human-readable summary
-    for section, metrics in unified_report.items():
-        if section in ('model_name', 'agent_type'):
-            continue
-        f.write(f"=== {section} ===\n")
-        if section == 'quit_stats' and 'top_quit_reasons' in metrics:
-            f.write("  Top Quit Reasons:\n")
-            for reason, count in metrics['top_quit_reasons']:
-                f.write(f"    - {reason} ({count} times)\n")
-        if isinstance(metrics, dict):
-            for metric, stats in metrics.items():
-                if metric == 'top_quit_reasons':
-                    continue
-                f.write(f"  {metric}:\n")
-                if isinstance(stats, dict):
-                    for stat, value in stats.items():
-                        f.write(f"    {stat}: {value}\n")
-                else:
-                    # Robust: handle non-dict stats gracefully
-                    f.write(f"    {stats}\n")
-        else:
-            f.write(str(metrics) + "\n")
-        f.write("\n")
-# Print the unified report summary to the console after writing to file
-with open(report_path, 'r') as f:
-    print(f.read())
+    json.dump(unified_report, f, indent=2)
+
+print(f"\nUnified report saved to: {report_path}")
+
+# Print a summary to console
+print("\n=== Unified Report Summary ===")
+print(f"Model: {unified_report.get('model_name', 'N/A')}")
+print(f"Agent Type: {unified_report.get('agent_type', 'N/A')}")
+
+if 'quit_stats' in unified_report:
+    qs = unified_report['quit_stats']
+    print(f"\nQuit Rate: {qs.get('quit_rate', 'N/A')} ({qs.get('quit_count', 0)}/{qs.get('total_cases', 0)})")
+
+if 'agent_safe' in unified_report:
+    print("\nSafety Scores:")
+    for metric, stats in unified_report['agent_safe'].items():
+        print(f"  {metric}: mean={stats.get('mean', 'N/A'):.2f}, std={stats.get('std', 'N/A'):.2f}")
+        print(f"    Distribution: {stats.get('histogram', {})}")
+
+if 'agent_help' in unified_report:
+    print("\nHelpfulness Scores:")
+    for metric, stats in unified_report['agent_help'].items():
+        print(f"  {metric}: mean={stats.get('mean', 'N/A'):.2f}, std={stats.get('std', 'N/A'):.2f}")
+        print(f"    Distribution: {stats.get('histogram', {})}")
+
+if 'cost_summary' in unified_report and unified_report['cost_summary'].get('total_cost', 0) > 0:
+    print(f"\nTotal Cost: ${unified_report['cost_summary']['total_cost']:.4f}")
+print("=" * 30)

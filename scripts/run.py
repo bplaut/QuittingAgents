@@ -137,7 +137,21 @@ output_dir = os.path.join(args.dump_dir, model_subdir)
 os.makedirs(output_dir, exist_ok=True)
 
 NOW = get_run_id()
-run_prefix = f"{model_subdir}_{args.agent_type}_{NOW}"
+# Build run prefix with quantization, safety flag, and test case info
+quant_suffix = f"_{args.quantization}" if args.quantization else ""
+safety_suffix = "_ignore_safety" if args.help_ignore_safety else ""
+# Add test case info to filename
+cases_suffix = ""
+if args.selected_indexes is not None:
+    # Use hyphen-concatenated indices
+    idx_str = "-".join(map(str, args.selected_indexes))
+    cases_suffix = f"_idx{idx_str}"
+elif args.trunc_num is not None:
+    # Use count
+    cases_suffix = f"_n{args.trunc_num}"
+# Otherwise no suffix (full dataset)
+
+run_prefix = f"{model_subdir}_{args.agent_type}{quant_suffix}{safety_suffix}{cases_suffix}_{NOW}"
 output_prefix = os.path.join(output_dir, run_prefix)
 
 cmd = (
@@ -248,3 +262,18 @@ if args.track_costs:
     for model, mdata in cost_data_agg.get('model_costs', {}).items():
         total_tokens = mdata['input_tokens'] + mdata['output_tokens']
         print(f"  {model}: total_tokens={total_tokens}, input_tokens={mdata['input_tokens']}, output_tokens={mdata['output_tokens']}, cost=${mdata['total_cost']:.4f}")
+
+# Copy unified report to ./results folder for easier access
+import shutil
+results_dir = "./results"
+os.makedirs(results_dir, exist_ok=True)
+
+report_file = f"{report_prefix}.json"
+if os.path.exists(report_file):
+    dest_path = os.path.join(results_dir, os.path.basename(report_file))
+    shutil.copy2(report_file, dest_path)
+    print(f"\n{'='*60}")
+    print(f"Results saved to: {dest_path}")
+    print(f"{'='*60}")
+else:
+    print(f"\n[Warning] Unified report not found: {report_file}")
