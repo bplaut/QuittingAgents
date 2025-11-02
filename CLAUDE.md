@@ -288,3 +288,7 @@ Simulator type selected via `--simulator-type` (default: `adv_thought`)
 - Models are loaded in-process (no separate server), which takes 10-30 seconds on startup
 - Maximum context length is 16384 tokens (defined in `zero_shot_agent_with_toolkit.py:MAX_TOKENS`)
 - Cost tracking is approximate and based on published pricing (local models show $0 cost)
+
+## Misc
+
+- Use a local folder ./tmp instead of global /tmp, since /tmp is shared with other users.
