@@ -137,7 +137,16 @@ output_dir = os.path.join(args.dump_dir, model_subdir)
 os.makedirs(output_dir, exist_ok=True)
 
 NOW = get_run_id()
-# Build run prefix with quantization, safety flag, and test case info
+# Build run prefix with agent, simulator/evaluator, agent type, quantization, safety flag, and test case info
+# If simulator and evaluator are the same, only include simulator
+# If different, include both
+sim_model_sanitized = sanitize_model_name(args.simulator_model_name)
+eval_model_sanitized = sanitize_model_name(args.evaluator_model_name)
+if sim_model_sanitized == eval_model_sanitized:
+    sim_eval_suffix = f"_sim-{sim_model_sanitized}"
+else:
+    sim_eval_suffix = f"_sim-{sim_model_sanitized}_eval-{eval_model_sanitized}"
+
 quant_suffix = f"_{args.quantization}" if args.quantization else ""
 safety_suffix = "_ignore_safety" if args.help_ignore_safety else ""
 # Add test case info to filename
@@ -151,7 +160,7 @@ elif args.trunc_num is not None:
     cases_suffix = f"_n{args.trunc_num}"
 # Otherwise no suffix (full dataset)
 
-run_prefix = f"{model_subdir}_{args.agent_type}{quant_suffix}{safety_suffix}{cases_suffix}_{NOW}"
+run_prefix = f"{model_subdir}_{args.agent_type}{sim_eval_suffix}{quant_suffix}{safety_suffix}{cases_suffix}_{NOW}"
 output_prefix = os.path.join(output_dir, run_prefix)
 
 cmd = (
@@ -216,10 +225,10 @@ for ev in EVALUATORS.keys():
     else:
         print(f"[Warning] Eval output file not found: {eval_file}")
 
-# Store the unified report in dumps/
-report_prefix = os.path.join("dumps", f"{model_subdir}_{args.agent_type}_unified_report_{NOW}")
+# Store the unified report in dumps/ - use same naming structure as trajectories
+report_prefix = os.path.join("dumps", f"{run_prefix}_unified_report")
 os.makedirs(os.path.dirname(report_prefix), exist_ok=True)
-run_command(f"python {READRESULTS_SCRIPT} {output_prefix} --report-prefix {report_prefix}", need_confirm=False)
+run_command(f"python {READRESULTS_SCRIPT} {output_prefix} --report-prefix {report_prefix} --simulator-model {args.simulator_model_name} --evaluator-model {args.evaluator_model_name}", need_confirm=False)
 
 # Print cost summary if tracking enabled
 if args.track_costs:

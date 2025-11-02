@@ -28,6 +28,8 @@ parser.add_argument(
 )
 parser.add_argument("--bin-threshold", "-bt", type=int, default=None)
 parser.add_argument("--report-prefix", type=str, default=None, help="Prefix for unified report output (default: eval_prefix)")
+parser.add_argument("--simulator-model", type=str, default=None, help="Simulator model name")
+parser.add_argument("--evaluator-model", type=str, default=None, help="Evaluator model name")
 
 
 args = parser.parse_args()
@@ -73,6 +75,8 @@ def extract_model_and_agent(eval_prefix):
 model_name, agent_type = extract_model_and_agent(args.eval_prefix)
 unified_report['model_name'] = model_name
 unified_report['agent_type'] = agent_type
+unified_report['simulator_model'] = args.simulator_model
+unified_report['evaluator_model'] = args.evaluator_model
 
 # Print quit statistics if they exist
 quit_stats_file = f"{args.eval_prefix}_quit_stats.json"
