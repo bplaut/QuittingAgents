@@ -291,4 +291,4 @@ Simulator type selected via `--simulator-type` (default: `adv_thought`)
 
 ## Misc
 
-- Use a local folder ./tmp instead of global /tmp, since /tmp is shared with other users.
+- For temporary storage, use the local folder ./tmp instead of global /tmp, since /tmp is shared with other users.
