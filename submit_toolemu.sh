@@ -172,40 +172,46 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
             SIMULATOR_SIZE=$(get_model_size "$SIMULATOR_MODEL")
             TOTAL_SIZE=$((AGENT_SIZE + SIMULATOR_SIZE))
 
-            # Adjust threshold based on quantization
-            # int4: ~0.5GB/B, int8: ~1GB/B, fp16: ~2GB/B
-            # For int8, use stricter threshold since it uses 2x memory vs int4
-            if [ "$QUANTIZATION" = "int8" ]; then
-                THRESHOLD=35  # More conservative for int8 (35B threshold ~40GB)
-            else
-                THRESHOLD=70  # int4 or none (70B threshold fits on 48GB nodes)
+            # Build positional arguments
+            # Order: input_path agent_model simulator_model evaluator_model agent_type quantization help_ignore_safety [trunc_num]
+            RUN_ARGS=(
+                "$INPUT_PATH"
+                "$AGENT_MODEL"
+                "$SIMULATOR_MODEL"
+                "$EVALUATOR_MODEL"
+                "$AGENT_TYPE"
+                "$QUANTIZATION"
+                "$HELP_MODE"  # Required: "true" or "false"
+            )
+
+            # Add optional trunc_num if set
+            if [ -n "$TRUNC_NUM" ]; then
+                RUN_ARGS+=("$TRUNC_NUM")
             fi
 
-            if [ "$TOTAL_SIZE" -gt "$THRESHOLD" ]; then
-                NODELIST="airl.ist.berkeley.edu,sac.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu"
+            # If both agent and simulator are API models (size 0), use no-GPU script
+            if [ "$AGENT_SIZE" -eq 0 ] && [ "$SIMULATOR_SIZE" -eq 0 ]; then
+                # Both are API models - no GPU needed
+                sbatch --nodes=1 no_gpu_run_toolemu.sh "${RUN_ARGS[@]}"
             else
-                NODELIST="airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu"
-            fi
-
-                # Build positional arguments for run_toolemu.sh
-                # Order: input_path agent_model simulator_model evaluator_model agent_type quantization help_ignore_safety [trunc_num]
-                RUN_ARGS=(
-                    "$INPUT_PATH"
-                    "$AGENT_MODEL"
-                    "$SIMULATOR_MODEL"
-                    "$EVALUATOR_MODEL"
-                    "$AGENT_TYPE"
-                    "$QUANTIZATION"
-                    "$HELP_MODE"  # Required: "true" or "false"
-                )
-
-                # Add optional trunc_num if set
-                if [ -n "$TRUNC_NUM" ]; then
-                    RUN_ARGS+=("$TRUNC_NUM")
+                # At least one HuggingFace model - need GPU
+                # Adjust threshold based on quantization
+                # int4: ~0.5GB/B, int8: ~1GB/B, fp16: ~2GB/B
+                # For int8, use stricter threshold since it uses 2x memory vs int4
+                if [ "$QUANTIZATION" = "int8" ]; then
+                    THRESHOLD=35  # More conservative for int8 (35B threshold ~40GB)
+                else
+                    THRESHOLD=70  # int4 or none (70B threshold fits on 48GB nodes)
                 fi
 
-                # Submit job
+                if [ "$TOTAL_SIZE" -gt "$THRESHOLD" ]; then
+                    NODELIST="airl.ist.berkeley.edu,sac.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu"
+                else
+                    NODELIST="airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu"
+                fi
+
                 sbatch --nodes=1 --nodelist="$NODELIST" run_toolemu.sh "${RUN_ARGS[@]}"
+            fi
 
             done
         done

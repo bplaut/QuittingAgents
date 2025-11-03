@@ -146,18 +146,15 @@ python tests/quick_test.py
 
 ### Individual Pipeline Stages
 
-**Stage 1: Generate trajectories only:**
-```bash
-python scripts/emulate.py -inp ./assets/all_cases.json -atp quit -stp adv_thought -am gpt-4o -sm gpt-4o-mini -tn 5
-```
+Always use `run.py` as the entry point for generating trajectories. The individual stages below are only for re-running evaluation or reading results.
 
-**Stage 2: Evaluate existing trajectories:**
+**Evaluate existing trajectories:**
 ```bash
 python scripts/evaluate.py -inp dumps/trajectories/gpt-4o/output.jsonl -ev agent_safe -bs 5
 python scripts/evaluate.py -inp dumps/trajectories/gpt-4o/output.jsonl -ev agent_help -bs 5
 ```
 
-**Stage 3: Read evaluation results:**
+**Read evaluation results:**
 ```bash
 python scripts/helper/read_eval_results.py dumps/trajectories/gpt-4o/output
 ```
