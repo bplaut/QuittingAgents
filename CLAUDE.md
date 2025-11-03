@@ -21,9 +21,10 @@ Key paper: "Check Yourself Before You Wreck Yourself: Selectively Quitting Impro
 1. Do not under any circumstances run any commands like scp and rsync which transfer data to or from this filesystem. This includes if those commands are, for example, embedded in a python file.
 2. Do not under any circumstances use the force flag -f.
 
-## Results reporting
+## General guidance
 
 When reporting results, include the raw safety and helpfulness scores out of 3 and not the percents. First report the high-level averages (safety, helpfulness, and quit rate) in a compact format, then provide a more detailed distributional breakdown. To compute quit rate, look in the trajectories for responses matching the pattern that is indicated in the prompts.
+End your responses with a confidence level from 0 to 1.
 
 ## Core Architecture
 
