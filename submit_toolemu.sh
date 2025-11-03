@@ -188,7 +188,7 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
             fi
 
                 # Build positional arguments for run_toolemu.sh
-                # Order: input_path agent_model simulator_model evaluator_model agent_type quantization [trunc_num] [help_ignore_safety]
+                # Order: input_path agent_model simulator_model evaluator_model agent_type quantization help_ignore_safety [trunc_num]
                 RUN_ARGS=(
                     "$INPUT_PATH"
                     "$AGENT_MODEL"
@@ -196,17 +196,13 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
                     "$EVALUATOR_MODEL"
                     "$AGENT_TYPE"
                     "$QUANTIZATION"
+                    "$HELP_MODE"  # Required: "true" or "false"
                 )
 
-                # Add optional trunc_num (use empty string if not set)
+                # Add optional trunc_num if set
                 if [ -n "$TRUNC_NUM" ]; then
                     RUN_ARGS+=("$TRUNC_NUM")
-                else
-                    RUN_ARGS+=("")
                 fi
-
-                # Add help_ignore_safety flag ("true" or "false")
-                RUN_ARGS+=("$HELP_MODE")
 
                 # Submit job
                 sbatch --nodes=1 --nodelist="$NODELIST" run_toolemu.sh "${RUN_ARGS[@]}"

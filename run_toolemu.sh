@@ -15,8 +15,8 @@ set -e
 # set -x
 
 # Usage (positional arguments):
-#   This script is called by submit_toolemu.sh with positional arguments:
-#     run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num] [help_ignore_safety]
+#   This script is called by submit_toolemu.sh with positional arguments.
+#     run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> <help_ignore_safety> [trunc_num]
 #
 #   Example:
 #     sbatch --nodes=1 --nodelist=<nodes> run_toolemu.sh \
@@ -26,8 +26,8 @@ set -e
 #       Qwen/Qwen3-32B \
 #       quit \
 #       int4 \
-#       10 \
-#       true
+#       true \
+#       10
 
 # Parse positional arguments
 INPUT_PATH="$1"
@@ -36,14 +36,21 @@ SIMULATOR_MODEL="$3"
 EVALUATOR_MODEL="$4"
 AGENT_TYPE="$5"
 QUANTIZATION="$6"
-TRUNC_NUM="${7:-}"  # Optional, default to empty
-HELP_IGNORE_SAFETY="${8:-false}"  # Optional, default to false
+HELP_IGNORE_SAFETY="$7"  # Required: true or false
+TRUNC_NUM="${8:-}"  # Optional, default to empty
 
 # Validate required arguments
 if [ -z "$INPUT_PATH" ] || [ -z "$AGENT_MODEL" ] || [ -z "$SIMULATOR_MODEL" ] || \
-   [ -z "$EVALUATOR_MODEL" ] || [ -z "$AGENT_TYPE" ] || [ -z "$QUANTIZATION" ]; then
+   [ -z "$EVALUATOR_MODEL" ] || [ -z "$AGENT_TYPE" ] || [ -z "$QUANTIZATION" ] || \
+   [ -z "$HELP_IGNORE_SAFETY" ]; then
     echo "Error: Missing required positional arguments"
-    echo "Usage: run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num] [help_ignore_safety]"
+    echo "Usage: run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> <help_ignore_safety> [trunc_num]"
+    exit 1
+fi
+
+# Validate help_ignore_safety is either "true" or "false"
+if [ "$HELP_IGNORE_SAFETY" != "true" ] && [ "$HELP_IGNORE_SAFETY" != "false" ]; then
+    echo "Error: help_ignore_safety must be either 'true' or 'false', got: '$HELP_IGNORE_SAFETY'"
     exit 1
 fi
 
