@@ -187,23 +187,26 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
                 NODELIST="airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu"
             fi
 
-                # Build arguments for run_toolemu.sh
+                # Build positional arguments for run_toolemu.sh
+                # Order: input_path agent_model simulator_model evaluator_model agent_type quantization [trunc_num] [help_ignore_safety]
                 RUN_ARGS=(
-                    --input-path "$INPUT_PATH"
-                    --agent-model "$AGENT_MODEL"
-                    --simulator-model "$SIMULATOR_MODEL"
-                    --evaluator-model "$EVALUATOR_MODEL"
-                    --agent-type "$AGENT_TYPE"
-                    --quantization "$QUANTIZATION"
+                    "$INPUT_PATH"
+                    "$AGENT_MODEL"
+                    "$SIMULATOR_MODEL"
+                    "$EVALUATOR_MODEL"
+                    "$AGENT_TYPE"
+                    "$QUANTIZATION"
                 )
 
+                # Add optional trunc_num (use empty string if not set)
                 if [ -n "$TRUNC_NUM" ]; then
-                    RUN_ARGS+=(--trunc-num "$TRUNC_NUM")
+                    RUN_ARGS+=("$TRUNC_NUM")
+                else
+                    RUN_ARGS+=("")
                 fi
 
-                if [ "$HELP_MODE" = "true" ]; then
-                    RUN_ARGS+=(--help-ignore-safety)
-                fi
+                # Add help_ignore_safety flag ("true" or "false")
+                RUN_ARGS+=("$HELP_MODE")
 
                 # Submit job
                 sbatch --nodes=1 --nodelist="$NODELIST" run_toolemu.sh "${RUN_ARGS[@]}"

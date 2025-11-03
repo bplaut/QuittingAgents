@@ -14,76 +14,36 @@ set -e
 # Print commands being executed
 # set -x
 
-# Usage:
-#   Option 1 (recommended): Use submit_toolemu.sh, which calls this script
-#   Option 2: Call this script directly:
-#      sbatch --nodes=1 --nodelist=<nodes> run_toolemu.sh \
-#        --input-path ./assets/all_cases.json \
-#        --agent-model Qwen/Qwen3-8B \
-#        --simulator-model Qwen/Qwen3-32B \
-#        --evaluator-model Qwen/Qwen3-32B \
-#        --agent-type quit \
-#        --quantization int4 \
-#        [--trunc-num 10] \
-#        [--help-ignore-safety]
+# Usage (positional arguments):
+#   This script is called by submit_toolemu.sh with positional arguments:
+#     run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num] [help_ignore_safety]
+#
+#   Example:
+#     sbatch --nodes=1 --nodelist=<nodes> run_toolemu.sh \
+#       ./assets/all_cases.json \
+#       Qwen/Qwen3-8B \
+#       Qwen/Qwen3-32B \
+#       Qwen/Qwen3-32B \
+#       quit \
+#       int4 \
+#       10 \
+#       true
 
-# Parse named arguments
-INPUT_PATH=""
-AGENT_MODEL=""
-SIMULATOR_MODEL=""
-EVALUATOR_MODEL=""
-AGENT_TYPE=""
-QUANTIZATION=""
-TRUNC_NUM=""
-HELP_IGNORE_SAFETY=false
-
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --input-path)
-            INPUT_PATH="$2"
-            shift 2
-            ;;
-        --agent-model)
-            AGENT_MODEL="$2"
-            shift 2
-            ;;
-        --simulator-model)
-            SIMULATOR_MODEL="$2"
-            shift 2
-            ;;
-        --evaluator-model)
-            EVALUATOR_MODEL="$2"
-            shift 2
-            ;;
-        --agent-type)
-            AGENT_TYPE="$2"
-            shift 2
-            ;;
-        --quantization)
-            QUANTIZATION="$2"
-            shift 2
-            ;;
-        --trunc-num)
-            TRUNC_NUM="$2"
-            shift 2
-            ;;
-        --help-ignore-safety)
-            HELP_IGNORE_SAFETY=true
-            shift
-            ;;
-        *)
-            echo "Unknown argument: $1"
-            exit 1
-            ;;
-    esac
-done
+# Parse positional arguments
+INPUT_PATH="$1"
+AGENT_MODEL="$2"
+SIMULATOR_MODEL="$3"
+EVALUATOR_MODEL="$4"
+AGENT_TYPE="$5"
+QUANTIZATION="$6"
+TRUNC_NUM="${7:-}"  # Optional, default to empty
+HELP_IGNORE_SAFETY="${8:-false}"  # Optional, default to false
 
 # Validate required arguments
 if [ -z "$INPUT_PATH" ] || [ -z "$AGENT_MODEL" ] || [ -z "$SIMULATOR_MODEL" ] || \
    [ -z "$EVALUATOR_MODEL" ] || [ -z "$AGENT_TYPE" ] || [ -z "$QUANTIZATION" ]; then
-    echo "Error: Missing required arguments"
-    echo "Required: --input-path, --agent-model, --simulator-model, --evaluator-model, --agent-type, --quantization"
-    echo "Optional: --trunc-num, --help-ignore-safety"
+    echo "Error: Missing required positional arguments"
+    echo "Usage: run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num] [help_ignore_safety]"
     exit 1
 fi
 
@@ -132,7 +92,7 @@ if [ -n "$TRUNC_NUM" ]; then
     CMD+=(--trunc-num "$TRUNC_NUM")
 fi
 
-if [ "$HELP_IGNORE_SAFETY" = true ]; then
+if [ "$HELP_IGNORE_SAFETY" = "true" ]; then
     CMD+=(--help-ignore-safety)
 fi
 
