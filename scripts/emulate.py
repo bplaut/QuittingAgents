@@ -128,6 +128,9 @@ def main():
         dump_dir=args.dump_dir,
         flat_output=True
     )
+    # Append output_file_suffix if provided
+    if args.output_file_suffix:
+        output_prefix = output_prefix + args.output_file_suffix
     os.makedirs(output_dir, exist_ok=True)
     output_path = output_prefix + ".jsonl"
 
