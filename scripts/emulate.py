@@ -120,17 +120,15 @@ def main():
         print(f"  Evaluator:  {args.evaluator_model_name}")
     print("="*80 + "\n")
     
-    output_dir, output_prefix = get_output_dir_and_prefix(
-        agent_model_name=sanitize_model_name(args.agent_model_name),
-        agent_type=args.agent_type,
-        run_id=NOW,
-        simulator_type=args.simulator_type,
-        dump_dir=args.dump_dir,
-        flat_output=True
-    )
-    # Append output_file_suffix if provided
-    if args.output_file_suffix:
-        output_prefix = output_prefix + args.output_file_suffix
+    # output_file_suffix is required and should be provided by run.py
+    # It contains the full filename prefix including model, type, and timestamp
+    if not args.output_file_suffix:
+        raise ValueError("output_file_suffix is required.")
+
+    output_dir = args.dump_dir
+    # Remove leading underscore if present
+    suffix = args.output_file_suffix.lstrip('_')
+    output_prefix = os.path.join(output_dir, suffix)
     os.makedirs(output_dir, exist_ok=True)
     output_path = output_prefix + ".jsonl"
 
@@ -228,6 +226,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
