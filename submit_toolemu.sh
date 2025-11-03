@@ -141,7 +141,7 @@ fi
 # Calculate total number of jobs
 TOTAL_JOBS=$((${#AGENT_MODELS[@]} * ${#AGENT_TYPES[@]} * ${#QUANTIZATIONS[@]} * ${#HELP_IGNORE_SAFETY_MODES[@]}))
 echo "========================================="
-echo "Submitting $TOTAL_JOBS job(s) for cross product:"
+echo "Submitting $TOTAL_JOBS job(s) for the following cross product:"
 echo "  Agent models: ${AGENT_MODELS[*]}"
 echo "  Agent types: ${AGENT_TYPES[*]}"
 echo "  Quantizations: ${QUANTIZATIONS[*]}"
