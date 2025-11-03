@@ -6,6 +6,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=72:00:00
 #SBATCH --qos=default
+#SBATCH --mem=8G
 # Note: --nodelist should be passed as a command-line argument to sbatch
 
 # Exit on any error
