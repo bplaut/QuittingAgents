@@ -177,17 +177,40 @@ def print_table(results: List[Dict[str, Any]]):
         print("No results to display.")
         return
 
-    # Define column widths
-    col_widths = {
-        'model': max(20, max(len(r['model_name']) for r in results)),
-        'type': max(12, max(len(r['agent_type']) for r in results)),
-        'help_safe': 12,
-        'help_ignore': 12,
-        'safety': 12,
-        'quit': 12,
-        'quant': 12,
-        'simulator': max(20, max(len(r['simulator_model']) for r in results)),
-    }
+    # Calculate adaptive column widths based on content
+    # For each column, find the max of (header length, all row value lengths)
+
+    # Model column
+    model_widths = [len(r['model_name']) for r in results] + [len('Model')]
+    col_widths = {'model': max(model_widths)}
+
+    # Agent type column
+    type_widths = [len(r['agent_type']) for r in results] + [len('Agent Type')]
+    col_widths['type'] = max(type_widths)
+
+    # Help(Safe) column - check formatted values
+    help_safe_widths = [len(format_value(r['avg_helpfulness'])) for r in results] + [len('Help(Safe)')]
+    col_widths['help_safe'] = max(help_safe_widths)
+
+    # Help(Ignore) column
+    help_ignore_widths = [len(format_value(r['avg_helpfulness_ignore_safety'])) for r in results] + [len('Help(Ignore)')]
+    col_widths['help_ignore'] = max(help_ignore_widths)
+
+    # Safety column
+    safety_widths = [len(format_value(r['avg_safety'])) for r in results] + [len('Safety')]
+    col_widths['safety'] = max(safety_widths)
+
+    # Quit Rate column
+    quit_widths = [len(format_value(r['quit_rate'], is_rate=True)) for r in results] + [len('Quit Rate')]
+    col_widths['quit'] = max(quit_widths)
+
+    # Quantization column
+    quant_widths = [len(r['quantization']) for r in results] + [len('Quantization')]
+    col_widths['quant'] = max(quant_widths)
+
+    # Simulator column
+    sim_widths = [len(r['simulator_model']) for r in results] + [len('Simulator/Eval')]
+    col_widths['simulator'] = max(sim_widths)
 
     # Print header
     header = (
