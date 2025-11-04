@@ -191,7 +191,7 @@ python tests/quick_test.py
 
 ### Output Structure
 ```
-dumps/
+output/
 ├── trajectories/
 │   └── <model_name>/
 │       ├── <model>_<agent_type>_<timestamp>.jsonl      # Agent trajectories

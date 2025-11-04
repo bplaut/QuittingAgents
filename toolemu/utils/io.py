@@ -111,26 +111,26 @@ def get_run_id():
     return datetime.datetime.now().strftime("%d%m_%H%M%S")
 
 
-def get_output_dir_and_prefix(agent_model_name, agent_type, run_id=None, simulator_type="adv_thought", dump_dir="./dumps/trajectories", flat_output=False):
+def get_output_dir_and_prefix(agent_model_name, agent_type, run_id=None, simulator_type="adv_thought", output_dir="./output/trajectories", flat_output=False):
     """
     Returns the output directory and file prefix for storing experiment results.
     If simulator_type is not adv_thought, include it in the file prefix.
-    If flat_output is True, use dump_dir as the output directory directly (no subfolders).
-    Otherwise, the output directory is dumps/trajectories/{agent_model_name}_{agent_type}/
+    If flat_output is True, use output_dir as the output directory directly (no subfolders).
+    Otherwise, the output directory is output/trajectories/{agent_model_name}_{agent_type}/
     """
     if run_id is None:
         run_id = get_run_id()
     dir_name = f"{agent_model_name}_{agent_type}"
     if flat_output:
-        output_dir = dump_dir
+        final_output_dir = output_dir
     else:
-        # Only add dir_name if not already present in dump_dir
-        if not dump_dir.rstrip('/').endswith(dir_name):
-            output_dir = os.path.join(dump_dir, dir_name)
+        # Only add dir_name if not already present in output_dir
+        if not output_dir.rstrip('/').endswith(dir_name):
+            final_output_dir = os.path.join(output_dir, dir_name)
         else:
-            output_dir = dump_dir
+            final_output_dir = output_dir
     if simulator_type == "adv_thought":
         prefix = f"{agent_model_name}_{agent_type}_{run_id}"
     else:
         prefix = f"{simulator_type}_{agent_model_name}_{agent_type}_{run_id}"
-    return output_dir, os.path.join(output_dir, prefix)
+    return final_output_dir, os.path.join(final_output_dir, prefix)

@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser()
 llm_register_args(parser, prefix="agent")
 parser.add_argument("--track-costs", action="store_true", help="Track costs for all components")
 DataLoader.register_args(parser, default_input_path="./assets/all_cases.json")
-parser.add_argument("--dump-dir", "-du", type=str, default="./dumps/trajectories")
+parser.add_argument("--output-dir", "-o", type=str, default="./output/trajectories")
 parser.add_argument(
     "--agent-type",
     "-atp",
@@ -133,7 +133,7 @@ def sanitize_model_name(model_name):
     return model_name.replace('/', '_').replace(' ', '_')
 
 model_subdir = sanitize_model_name(args.agent_model_name)
-output_dir = os.path.join(args.dump_dir, model_subdir)
+output_dir = os.path.join(args.output_dir, model_subdir)
 os.makedirs(output_dir, exist_ok=True)
 
 NOW = get_run_id()
@@ -159,7 +159,7 @@ run_prefix = f"{model_subdir}_{args.agent_type}{sim_eval_suffix}{quant_suffix}{c
 output_prefix = os.path.join(output_dir, run_prefix)
 
 cmd = (
-    f"python {EXECUTE_SCRIPT} -inp {args.input_path} -du {output_dir} -outsuf _{run_prefix} "
+    f"python {EXECUTE_SCRIPT} -inp {args.input_path} -o {output_dir} -outsuf _{run_prefix} "
     f"-atp {args.agent_type} -stp {args.simulator_type} -am {args.agent_model_name} "
     f"--simulator-model-name {args.simulator_model_name} "
     f"--run-id {NOW} "
@@ -242,8 +242,8 @@ for ev in EVALUATORS.keys():
         else:
             print(f"[Warning] Eval output file not found: {eval_file}")
 
-# Store the unified report in dumps/ - use same naming structure as trajectories
-report_prefix = os.path.join("dumps", f"{run_prefix}_unified_report")
+# Store the unified report in output/ - use same naming structure as trajectories
+report_prefix = os.path.join("output", f"{run_prefix}_unified_report")
 os.makedirs(os.path.dirname(report_prefix), exist_ok=True)
 run_command(f"python {READRESULTS_SCRIPT} {output_prefix} --report-prefix {report_prefix} --simulator-model {args.simulator_model_name} --evaluator-model {args.evaluator_model_name}", need_confirm=False)
 

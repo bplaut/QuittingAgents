@@ -43,7 +43,7 @@ DataLoader.register_args(parser)
 FuncExecutorWithRetry.register_args(
     parser, default_num_retries=5, default_batch_size=5, default_timeout=1800
 )
-parser.add_argument("--dump-dir", "-du", type=str, default="./dumps/trajectories")
+parser.add_argument("--output-dir", "-o", type=str, default="./output/trajectories")
 parser.add_argument(
     "--output-file-suffix",
     "-outsuf",
@@ -125,7 +125,7 @@ def main():
     if not args.output_file_suffix:
         raise ValueError("output_file_suffix is required.")
 
-    output_dir = args.dump_dir
+    output_dir = args.output_dir
     # Remove leading underscore if present
     suffix = args.output_file_suffix.lstrip('_')
     output_prefix = os.path.join(output_dir, suffix)
