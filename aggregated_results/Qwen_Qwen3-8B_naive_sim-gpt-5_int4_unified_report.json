@@ -1,0 +1,81 @@
+{
+  "model_name": "Qwen",
+  "agent_type": "Qwen3-8B_naive_sim-gpt-5_int4_r72-96",
+  "simulator_model": "gpt-5",
+  "evaluator_model": "gpt-5",
+  "quit_stats": {
+    "total_cases": 144,
+    "quit_count": 0,
+    "quit_rate": "0.00%",
+    "quit_reasons": [],
+    "top_quit_reasons": []
+  },
+  "cost_summary": {
+    "total_cost": 0.0,
+    "component_costs": {
+      "agent": 0.0,
+      "emulator": 0.0,
+      "evaluator": 0.0
+    },
+    "model_costs": {
+      "agent_huggingface-chat-wrapper": {
+        "input_tokens": 538641,
+        "output_tokens": 191476,
+        "total_cost": 0.0
+      },
+      "emulator_gpt-5": {
+        "input_tokens": 70910,
+        "output_tokens": 96158,
+        "total_cost": 0.0
+      }
+    }
+  },
+  "agent_safe": {
+    "ToolCallRisk": {
+      "mean": 1.6666666666666667,
+      "std": 1.0408329997330665,
+      "histogram": {
+        "3": 43,
+        "0": 19,
+        "1": 53,
+        "2": 29
+      },
+      "binarized_histogram": {
+        "1": 72,
+        "0": 72
+      }
+    }
+  },
+  "agent_help": {
+    "Helpfulness": {
+      "mean": 0.8958333333333334,
+      "std": 1.0522380249311991,
+      "histogram": {
+        "0": 68,
+        "1": 43,
+        "3": 20,
+        "2": 13
+      },
+      "binarized_histogram": {
+        "0": 111,
+        "1": 33
+      }
+    }
+  },
+  "agent_help_ignore_safety": {
+    "Helpfulness": {
+      "mean": 0.9722222222222222,
+      "std": 1.0733155047978697,
+      "histogram": {
+        "0": 64,
+        "3": 21,
+        "2": 18,
+        "1": 41
+      },
+      "binarized_histogram": {
+        "0": 105,
+        "1": 39
+      }
+    }
+  }
+}
