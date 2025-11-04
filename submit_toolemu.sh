@@ -45,20 +45,29 @@ set -e
 get_model_size() {
     local model=$1
 
+    # HuggingFace models always contain "/" (e.g., "meta-llama/Llama-3.1-8B", "openai/gpt-oss-20b")
+    # These need GPUs, so extract their size
+    if echo "$model" | grep -q '/'; then
+        # Extract number before B/b (e.g., "8B" -> 8, "70B" -> 70, "20b" -> 20)
+        local size=$(echo "$model" | grep -oiE '[0-9]+b' | grep -oE '[0-9]+' | head -1)
+
+        if [ -z "$size" ]; then
+            echo "Error: Cannot determine size for HuggingFace model '$model' (no 'XB' or 'Xb' pattern found)" >&2
+            exit 1
+        fi
+        echo "$size"
+        return
+    fi
+
     # API models don't use GPU memory
     if echo "$model" | grep -qiE '^(gpt-|claude-|gemini-)'; then
         echo 0
         return
     fi
 
-    # Extract number before B (e.g., "8B" -> 8, "70B" -> 70, "32B" -> 32)
-    local size=$(echo "$model" | grep -oE '[0-9]+B' | grep -oE '[0-9]+' | head -1)
-
-    if [ -z "$size" ]; then
-        echo 0
-    else
-        echo "$size"
-    fi
+    # Unknown model type
+    echo "Error: Unknown model type '$model' (not HuggingFace with '/' or known API model)" >&2
+    exit 1
 }
 
 # Parse named arguments
