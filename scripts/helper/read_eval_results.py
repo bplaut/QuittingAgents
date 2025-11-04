@@ -149,43 +149,88 @@ if cost_files:
     unified_report['cost_summary'] = cost_data_agg
 
 for eval_type in args.eval_types:
-    input_file = f"{args.eval_prefix}_eval_{eval_type}.jsonl"
-    if not os.path.exists(input_file):
-        print(f"[Info] no eval results for {eval_type}")
-        continue
+    if eval_type == 'agent_help':
+        # Process BOTH helpfulness variants (safety-enforcing and safety-ignoring)
+        for suffix in ['', '_ignore_safety']:
+            input_file = f"{args.eval_prefix}_eval_{eval_type}{suffix}.jsonl"
+            key_name = f"{eval_type}{suffix}" if suffix else eval_type
 
-    eval_preds = read_file(input_file)
-    print(f"[Info] Loaded {len(eval_preds)} eval results from {input_file}")
-    eval_preds = [p for p in eval_preds if "eval_scores" in p]
-    eval_metrics = EVALUATORS2METRICS[eval_type]
+            if not os.path.exists(input_file):
+                print(f"[Info] no eval results for {key_name}")
+                continue
 
-    for k in eval_metrics:
-        print(f"=== {eval_type}: {k} ===")
-        all_scores = []
-        for pred in eval_preds:
-            try:
-                res = convert_to_score(get_pred_res(pred, k))
-                all_scores.append(res)
-            except:
-                print(f"Error processing {pred}")
-        print_scores(all_scores)
+            eval_preds = read_file(input_file)
+            print(f"[Info] Loaded {len(eval_preds)} eval results from {input_file}")
+            eval_preds = [p for p in eval_preds if "eval_scores" in p]
+            eval_metrics = EVALUATORS2METRICS['agent_help']  # Same metrics for both
 
-        if args.bin_threshold is None:
-            threshold = METRICS2BIN_THRESHOLDS[k]
-        else:
-            threshold = args.bin_threshold
-        all_scores_bin = [convert_to_score(s, binarize_thres=threshold) for s in all_scores]
-        print("-- After binarization: --")
-        print_scores(all_scores_bin)
-        # Add to unified report
-        if eval_type not in unified_report:
-            unified_report[eval_type] = {}
-        unified_report[eval_type][k] = {
-            'mean': float(np.mean(all_scores)) if all_scores else None,
-            'std': float(np.std(all_scores)) if all_scores else None,
-            'histogram': dict(collections.Counter(all_scores)),
-            'binarized_histogram': dict(collections.Counter(all_scores_bin)),
-        }
+            for k in eval_metrics:
+                print(f"=== {key_name}: {k} ===")
+                all_scores = []
+                for pred in eval_preds:
+                    try:
+                        res = convert_to_score(get_pred_res(pred, k))
+                        all_scores.append(res)
+                    except:
+                        print(f"Error processing {pred}")
+                print_scores(all_scores)
+
+                if args.bin_threshold is None:
+                    threshold = METRICS2BIN_THRESHOLDS[k]
+                else:
+                    threshold = args.bin_threshold
+                all_scores_bin = [convert_to_score(s, binarize_thres=threshold) for s in all_scores]
+                print("-- After binarization: --")
+                print_scores(all_scores_bin)
+
+                # Add to unified report with distinct key
+                if key_name not in unified_report:
+                    unified_report[key_name] = {}
+                unified_report[key_name][k] = {
+                    'mean': float(np.mean(all_scores)) if all_scores else None,
+                    'std': float(np.std(all_scores)) if all_scores else None,
+                    'histogram': dict(collections.Counter(all_scores)),
+                    'binarized_histogram': dict(collections.Counter(all_scores_bin)),
+                }
+    else:
+        # Other evaluators run once normally
+        input_file = f"{args.eval_prefix}_eval_{eval_type}.jsonl"
+        if not os.path.exists(input_file):
+            print(f"[Info] no eval results for {eval_type}")
+            continue
+
+        eval_preds = read_file(input_file)
+        print(f"[Info] Loaded {len(eval_preds)} eval results from {input_file}")
+        eval_preds = [p for p in eval_preds if "eval_scores" in p]
+        eval_metrics = EVALUATORS2METRICS[eval_type]
+
+        for k in eval_metrics:
+            print(f"=== {eval_type}: {k} ===")
+            all_scores = []
+            for pred in eval_preds:
+                try:
+                    res = convert_to_score(get_pred_res(pred, k))
+                    all_scores.append(res)
+                except:
+                    print(f"Error processing {pred}")
+            print_scores(all_scores)
+
+            if args.bin_threshold is None:
+                threshold = METRICS2BIN_THRESHOLDS[k]
+            else:
+                threshold = args.bin_threshold
+            all_scores_bin = [convert_to_score(s, binarize_thres=threshold) for s in all_scores]
+            print("-- After binarization: --")
+            print_scores(all_scores_bin)
+            # Add to unified report
+            if eval_type not in unified_report:
+                unified_report[eval_type] = {}
+            unified_report[eval_type][k] = {
+                'mean': float(np.mean(all_scores)) if all_scores else None,
+                'std': float(np.std(all_scores)) if all_scores else None,
+                'histogram': dict(collections.Counter(all_scores)),
+                'binarized_histogram': dict(collections.Counter(all_scores_bin)),
+            }
 
 # Write unified report to JSON file
 # If report_prefix is not provided, use <eval_prefix>_unified_report.json

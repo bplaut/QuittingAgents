@@ -26,11 +26,6 @@ def extract_quantization_from_filename(filename: str) -> str:
     return "none"
 
 
-def extract_help_ignore_safety_from_filename(filename: str) -> bool:
-    """Extract whether help-ignore-safety flag was used from filename."""
-    return '_ignore_safety' in filename
-
-
 def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
     """Extract key metrics from a unified report JSON file."""
     try:
@@ -41,11 +36,10 @@ def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
         model_name = data.get('model_name', 'Unknown')
         agent_type = data.get('agent_type', 'Unknown')
         quantization = extract_quantization_from_filename(os.path.basename(report_path))
-        help_ignore_safety = extract_help_ignore_safety_from_filename(os.path.basename(report_path))
         # Assume simulator and evaluator are the same, prefer simulator_model
         simulator_model = data.get('simulator_model') or data.get('evaluator_model', 'Unknown')
 
-        # Extract helpfulness (average across all metrics in agent_help)
+        # Extract helpfulness (safety-enforcing: average across all metrics in agent_help)
         avg_helpfulness = None
         if 'agent_help' in data:
             help_means = [
@@ -55,6 +49,17 @@ def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
             ]
             if help_means:
                 avg_helpfulness = sum(help_means) / len(help_means)
+
+        # Extract helpfulness (safety-ignoring: average across all metrics in agent_help_ignore_safety)
+        avg_helpfulness_ignore_safety = None
+        if 'agent_help_ignore_safety' in data:
+            help_means = [
+                metric_data.get('mean')
+                for metric_data in data['agent_help_ignore_safety'].values()
+                if isinstance(metric_data, dict) and metric_data.get('mean') is not None
+            ]
+            if help_means:
+                avg_helpfulness_ignore_safety = sum(help_means) / len(help_means)
 
         # Extract safety (average across all metrics in agent_safe)
         avg_safety = None
@@ -78,8 +83,8 @@ def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
             'model_name': model_name,
             'agent_type': agent_type,
             'quantization': quantization,
-            'help_ignore_safety': help_ignore_safety,
             'avg_helpfulness': avg_helpfulness,
+            'avg_helpfulness_ignore_safety': avg_helpfulness_ignore_safety,
             'avg_safety': avg_safety,
             'quit_rate': quit_rate,
             'simulator_model': simulator_model,
@@ -109,8 +114,8 @@ def print_table(results: List[Dict[str, Any]]):
     col_widths = {
         'model': max(20, max(len(r['model_name']) for r in results)),
         'type': max(12, max(len(r['agent_type']) for r in results)),
-        'ign_safe': 10,
-        'help': 12,
+        'help_safe': 12,
+        'help_ignore': 12,
         'safety': 12,
         'quit': 12,
         'quant': 12,
@@ -121,9 +126,9 @@ def print_table(results: List[Dict[str, Any]]):
     header = (
         f"{'Model':<{col_widths['model']}} | "
         f"{'Agent Type':<{col_widths['type']}} | "
-        f"{'Ign-Safety':<{col_widths['ign_safe']}} | "
-        f"{'Avg Help':<{col_widths['help']}} | "
-        f"{'Avg Safety':<{col_widths['safety']}} | "
+        f"{'Help(Safe)':<{col_widths['help_safe']}} | "
+        f"{'Help(Ignore)':<{col_widths['help_ignore']}} | "
+        f"{'Safety':<{col_widths['safety']}} | "
         f"{'Quit Rate':<{col_widths['quit']}} | "
         f"{'Quantization':<{col_widths['quant']}} | "
         f"{'Simulator/Eval':<{col_widths['simulator']}}"
@@ -136,12 +141,11 @@ def print_table(results: List[Dict[str, Any]]):
 
     # Print rows
     for result in results:
-        ign_safe_str = "Yes" if result['help_ignore_safety'] else "No"
         row = (
             f"{result['model_name']:<{col_widths['model']}} | "
             f"{result['agent_type']:<{col_widths['type']}} | "
-            f"{ign_safe_str:<{col_widths['ign_safe']}} | "
-            f"{format_value(result['avg_helpfulness']):<{col_widths['help']}} | "
+            f"{format_value(result['avg_helpfulness']):<{col_widths['help_safe']}} | "
+            f"{format_value(result['avg_helpfulness_ignore_safety']):<{col_widths['help_ignore']}} | "
             f"{format_value(result['avg_safety']):<{col_widths['safety']}} | "
             f"{format_value(result['quit_rate'], is_rate=True):<{col_widths['quit']}} | "
             f"{result['quantization']:<{col_widths['quant']}} | "
@@ -206,12 +210,11 @@ def main():
         print("No valid results extracted from report files")
         return
 
-    # Sort results by simulator_model, then model_name, then agent_type, then help_ignore_safety, then quantization
+    # Sort results by simulator_model, then model_name, then agent_type, then quantization
     results.sort(key=lambda x: (
         x['simulator_model'].lower(),
         x['model_name'].lower(),
         x['agent_type'].lower(),
-        not x['help_ignore_safety'],  # False (No) before True (Yes)
         x['quantization'].lower()
     ))
 

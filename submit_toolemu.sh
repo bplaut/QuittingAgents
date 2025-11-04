@@ -10,11 +10,10 @@
 #     --evaluator-model Qwen/Qwen3-32B \
 #     --agent-type naive quit simple_quit \
 #     --quantization int4 int8 \
-#     --help-ignore-safety true false \
 #     [--trunc-num 10]
 #
-# This will submit jobs for all combinations (cross product) of agent-model, agent-type, quantization, and help-ignore-safety
-# Example: 2 models × 3 types × 2 quantizations × 2 help modes = 24 jobs
+# This will submit jobs for all combinations (cross product) of agent-model, agent-type, and quantization
+# Example: 2 models × 3 types × 2 quantizations = 12 jobs
 
 set -e
 
@@ -46,7 +45,6 @@ SIMULATOR_MODEL=""
 EVALUATOR_MODEL=""
 AGENT_TYPES=()
 QUANTIZATIONS=()
-HELP_IGNORE_SAFETY_MODES=()
 TRUNC_NUM=""
 
 while [[ $# -gt 0 ]]; do
@@ -81,13 +79,6 @@ while [[ $# -gt 0 ]]; do
             shift
             while [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; do
                 QUANTIZATIONS+=("$1")
-                shift
-            done
-            ;;
-        --help-ignore-safety)
-            shift
-            while [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; do
-                HELP_IGNORE_SAFETY_MODES+=("$1")
                 shift
             done
             ;;
@@ -133,19 +124,13 @@ if [ ${#QUANTIZATIONS[@]} -eq 0 ]; then
     exit 1
 fi
 
-if [ ${#HELP_IGNORE_SAFETY_MODES[@]} -eq 0 ]; then
-    echo "Error: At least one --help-ignore-safety value is required (use: true false)"
-    exit 1
-fi
-
 # Calculate total number of jobs
-TOTAL_JOBS=$((${#AGENT_MODELS[@]} * ${#AGENT_TYPES[@]} * ${#QUANTIZATIONS[@]} * ${#HELP_IGNORE_SAFETY_MODES[@]}))
+TOTAL_JOBS=$((${#AGENT_MODELS[@]} * ${#AGENT_TYPES[@]} * ${#QUANTIZATIONS[@]}))
 echo "========================================="
 echo "Submitting $TOTAL_JOBS job(s) for the following cross product:"
 echo "  Agent models: ${AGENT_MODELS[*]}"
 echo "  Agent types: ${AGENT_TYPES[*]}"
 echo "  Quantizations: ${QUANTIZATIONS[*]}"
-echo "  Help ignore safety: ${HELP_IGNORE_SAFETY_MODES[*]}"
 echo "  Simulator: $SIMULATOR_MODEL"
 echo "  Evaluator: $EVALUATOR_MODEL"
 if [ -n "$TRUNC_NUM" ]; then
@@ -162,10 +147,9 @@ JOB_COUNT=0
 for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
     for AGENT_TYPE in "${AGENT_TYPES[@]}"; do
         for QUANTIZATION in "${QUANTIZATIONS[@]}"; do
-            for HELP_MODE in "${HELP_IGNORE_SAFETY_MODES[@]}"; do
-                JOB_COUNT=$((JOB_COUNT + 1))
+            JOB_COUNT=$((JOB_COUNT + 1))
 
-                echo "[$JOB_COUNT/$TOTAL_JOBS] Submitting: agent=$AGENT_MODEL, type=$AGENT_TYPE, quant=$QUANTIZATION, help_ignore_safety=$HELP_MODE"
+            echo "[$JOB_COUNT/$TOTAL_JOBS] Submitting: agent=$AGENT_MODEL, type=$AGENT_TYPE, quant=$QUANTIZATION"
 
             # Calculate GPU requirements
             AGENT_SIZE=$(get_model_size "$AGENT_MODEL")
@@ -173,7 +157,7 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
             TOTAL_SIZE=$((AGENT_SIZE + SIMULATOR_SIZE))
 
             # Build positional arguments
-            # Order: input_path agent_model simulator_model evaluator_model agent_type quantization help_ignore_safety [trunc_num]
+            # Order: input_path agent_model simulator_model evaluator_model agent_type quantization [trunc_num]
             RUN_ARGS=(
                 "$INPUT_PATH"
                 "$AGENT_MODEL"
@@ -181,7 +165,6 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
                 "$EVALUATOR_MODEL"
                 "$AGENT_TYPE"
                 "$QUANTIZATION"
-                "$HELP_MODE"  # Required: "true" or "false"
             )
 
             # Add optional trunc_num if set
@@ -213,7 +196,6 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
                 sbatch --nodes=1 --nodelist="$NODELIST" run_toolemu.sh "${RUN_ARGS[@]}"
             fi
 
-            done
         done
     done
 done

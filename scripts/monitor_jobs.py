@@ -42,7 +42,7 @@ def get_trajectory_progress(job_id):
     # Find log file for this job
     log_file = f"logs/exp_toolemu_{job_id}.out"
     if not os.path.exists(log_file):
-        return None, None
+        return None, None, None, None, None
 
     try:
         with open(log_file, 'r') as f:
@@ -52,7 +52,7 @@ def get_trajectory_progress(job_id):
             agent_model = None
             sim_model = None
             agent_type = None
-            help_ignore = False
+            quantization = None
 
             for line in content.split('\n'):
                 if line.strip().startswith('Agent:'):
@@ -61,11 +61,11 @@ def get_trajectory_progress(job_id):
                     sim_model = line.split('Simulator:')[-1].strip()
                 elif line.strip().startswith('Agent type:'):
                     agent_type = line.split('Agent type:')[-1].strip()
-                elif line.strip().startswith('Help ignore safety:'):
-                    help_ignore = 'true' in line.lower()
+                elif line.strip().startswith('Quantization:'):
+                    quantization = line.split('Quantization:')[-1].strip()
 
             if not (agent_model and sim_model and agent_type):
-                return None, None
+                return None, None, None, None, None
 
             # Sanitize model names for filesystem
             agent_safe = agent_model.replace('/', '_').replace(' ', '_')
@@ -79,17 +79,15 @@ def get_trajectory_progress(job_id):
             traj_files = [f for f in matches
                          if 'eval' not in f and 'costs' not in f and 'quit_stats' not in f]
 
-            # Find the most recent one that matches our safety setting
-            safety_suffix = "ignore_safety" if help_ignore else ""
+            # Find the most recent one that matches our quantization
             best_match = None
             best_mtime = 0
 
             for traj_file in traj_files:
-                # Check if safety setting matches
-                if help_ignore and 'ignore_safety' not in traj_file:
-                    continue
-                if not help_ignore and 'ignore_safety' in traj_file:
-                    continue
+                # Check if quantization matches
+                if quantization:
+                    if quantization not in traj_file:
+                        continue
 
                 mtime = os.path.getmtime(traj_file)
                 if mtime > best_mtime:
@@ -97,15 +95,33 @@ def get_trajectory_progress(job_id):
                     best_match = traj_file
 
             if best_match and os.path.exists(best_match):
+                # Count trajectory lines
                 with open(best_match, 'r') as tf:
-                    lines = sum(1 for _ in tf)
+                    traj_lines = sum(1 for _ in tf)
+
+                # Count eval file lines
+                base_path = best_match.replace('.jsonl', '')
+                safe_eval_file = f"{base_path}_eval_agent_safe.jsonl"
+                help_eval_file = f"{base_path}_eval_agent_help.jsonl"
+
+                safe_lines = 0
+                help_lines = 0
+
+                if os.path.exists(safe_eval_file):
+                    with open(safe_eval_file, 'r') as f:
+                        safe_lines = sum(1 for _ in f)
+
+                if os.path.exists(help_eval_file):
+                    with open(help_eval_file, 'r') as f:
+                        help_lines = sum(1 for _ in f)
+
                 basename = os.path.basename(best_match)
-                return lines, basename, help_ignore
+                return traj_lines, safe_lines, help_lines, basename, quantization
 
     except Exception as e:
         pass
 
-    return None, None, None
+    return None, None, None, None, None
 
 def parse_time(time_str):
     """Parse SLURM time format (e.g., '1:23:45' or '23:45') to seconds."""
@@ -127,14 +143,38 @@ def format_time(seconds):
         mins = (seconds % 3600) // 60
         return f"{hours}h {mins}m"
 
-def estimate_completion(progress, elapsed_seconds):
+def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_seconds):
     """Estimate time to completion based on current progress."""
-    if progress == 0:
+    # Trajectory generation is much slower than evaluation (agent + simulator running multiple steps)
+    # Weight trajectories higher: roughly 4x slower than a single evaluation
+    # This is empirically observed: ~3-4 min per trajectory vs ~1 min per eval
+
+    TRAJ_WEIGHT = 4  # Trajectories take ~4x as long as evals
+    EVAL_WEIGHT = 1  # Evals are baseline unit
+
+    # Calculate weighted units of work completed
+    weighted_units_done = (traj_progress * TRAJ_WEIGHT +
+                           safe_progress * EVAL_WEIGHT +
+                           help_progress * EVAL_WEIGHT)
+
+    # Total weighted units of work
+    total_weighted_units = 144 * TRAJ_WEIGHT + 144 * EVAL_WEIGHT + 144 * EVAL_WEIGHT
+    # = 576 + 144 + 144 = 864 weighted units
+
+    if weighted_units_done == 0:
         return "Unknown"
 
-    rate = elapsed_seconds / progress  # seconds per case
-    remaining_cases = 144 - progress
-    remaining_seconds = int(rate * remaining_cases)
+    if weighted_units_done >= total_weighted_units:
+        return "Complete"
+
+    # Calculate average rate (seconds per weighted unit)
+    rate = elapsed_seconds / weighted_units_done
+
+    # Calculate remaining weighted units
+    remaining_units = total_weighted_units - weighted_units_done
+
+    # Estimated remaining time
+    remaining_seconds = int(rate * remaining_units)
 
     return format_time(remaining_seconds)
 
@@ -229,29 +269,33 @@ def print_job_summary(jobs, show_pending=True):
 
     if running:
         print(f"\n🏃 RUNNING JOBS ({len(running)}):")
-        print("-"*120)
-        print(f"{'Job ID':<10} {'Progress':<12} {'Elapsed':<10} {'ETA':<12} {'Agent':<15} {'Sim':<15} {'Type':<12} {'Safety':<8}")
-        print("-"*120)
+        print("-"*140)
+        print(f"{'Job ID':<10} {'Traj':<8} {'Safe':<8} {'Help':<8} {'Elapsed':<10} {'ETA':<12} {'Agent':<15} {'Sim':<15} {'Type':<12} {'Quant':<7}")
+        print("-"*140)
 
         for job in sorted(running, key=lambda x: x['job_id']):
-            progress, filename, help_ignore = get_trajectory_progress(job['job_id'])
+            traj_progress, safe_progress, help_progress, filename, quant = get_trajectory_progress(job['job_id'])
             elapsed_sec = parse_time(job['time'])
 
-            if progress is not None:
-                progress_str = f"{progress}/144 ({progress*100//144}%)"
-                eta = estimate_completion(progress, elapsed_sec)
+            if traj_progress is not None:
+                traj_str = f"{traj_progress}/144"
+                safe_str = f"{safe_progress}/144"
+                help_str = f"{help_progress}/144"
+                eta = estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec)
                 agent, atype, sim = get_job_config(filename)
-                safety_str = "ignore" if help_ignore else "enforce"
+                quant_str = quant if quant else "?"
             else:
-                progress_str = "Initializing"
+                traj_str = "?"
+                safe_str = "?"
+                help_str = "?"
                 eta = "Unknown"
                 agent, atype, sim = "?", "?", "?"
-                safety_str = "?"
+                quant_str = "?"
 
             elapsed_str = format_time(elapsed_sec)
 
-            print(f"{job['job_id']:<10} {progress_str:<12} {elapsed_str:<10} {eta:<12} "
-                  f"{agent:<15} {sim:<15} {atype:<12} {safety_str:<8}")
+            print(f"{job['job_id']:<10} {traj_str:<8} {safe_str:<8} {help_str:<8} {elapsed_str:<10} {eta:<12} "
+                  f"{agent:<15} {sim:<15} {atype:<12} {quant_str:<7}")
 
     if show_pending and pending:
         print(f"\n⏳ PENDING JOBS ({len(pending)}):")

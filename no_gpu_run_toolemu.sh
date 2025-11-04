@@ -16,7 +16,7 @@ set -e
 
 # Usage (positional arguments):
 #   This script is called by submit_toolemu.sh with positional arguments.
-#     no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> <help_ignore_safety> [trunc_num]
+#     no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num]
 #
 #   Example:
 #     sbatch --nodes=1 no_gpu_run_toolemu.sh \
@@ -26,7 +26,6 @@ set -e
 #       gpt-5-mini \
 #       quit \
 #       int4 \
-#       true \
 #       10
 
 # Parse positional arguments
@@ -36,21 +35,13 @@ SIMULATOR_MODEL="$3"
 EVALUATOR_MODEL="$4"
 AGENT_TYPE="$5"
 QUANTIZATION="$6"
-HELP_IGNORE_SAFETY="$7"  # Required: true or false
-TRUNC_NUM="${8:-}"  # Optional, default to empty
+TRUNC_NUM="${7:-}"  # Optional, default to empty
 
 # Validate required arguments
 if [ -z "$INPUT_PATH" ] || [ -z "$AGENT_MODEL" ] || [ -z "$SIMULATOR_MODEL" ] || \
-   [ -z "$EVALUATOR_MODEL" ] || [ -z "$AGENT_TYPE" ] || [ -z "$QUANTIZATION" ] || \
-   [ -z "$HELP_IGNORE_SAFETY" ]; then
+   [ -z "$EVALUATOR_MODEL" ] || [ -z "$AGENT_TYPE" ] || [ -z "$QUANTIZATION" ]; then
     echo "Error: Missing required positional arguments"
-    echo "Usage: no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> <help_ignore_safety> [trunc_num]"
-    exit 1
-fi
-
-# Validate help_ignore_safety is either "true" or "false"
-if [ "$HELP_IGNORE_SAFETY" != "true" ] && [ "$HELP_IGNORE_SAFETY" != "false" ]; then
-    echo "Error: help_ignore_safety must be either 'true' or 'false', got: '$HELP_IGNORE_SAFETY'"
+    echo "Usage: no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num]"
     exit 1
 fi
 
@@ -93,10 +84,6 @@ if [ -n "$TRUNC_NUM" ]; then
     CMD+=(--trunc-num "$TRUNC_NUM")
 fi
 
-if [ "$HELP_IGNORE_SAFETY" = "true" ]; then
-    CMD+=(--help-ignore-safety)
-fi
-
 # Run the evaluation
 echo "Running evaluation with models (CPU-only, no GPU):"
 echo "  Agent: $AGENT_MODEL"
@@ -107,7 +94,6 @@ echo "  Quantization: $QUANTIZATION"
 if [ -n "$TRUNC_NUM" ]; then
     echo "  Trunc num: $TRUNC_NUM"
 fi
-echo "  Help ignore safety: $HELP_IGNORE_SAFETY"
 
 "${CMD[@]}" || { echo "Evaluation failed"; exit 1; }
 

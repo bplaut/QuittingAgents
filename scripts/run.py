@@ -148,7 +148,6 @@ else:
     sim_eval_suffix = f"_sim-{sim_model_sanitized}_eval-{eval_model_sanitized}"
 
 quant_suffix = f"_{args.quantization}" if args.quantization else ""
-safety_suffix = "_ignore_safety" if args.help_ignore_safety else ""
 # Add test case info to filename
 cases_suffix = ""
 if args.selected_indexes is not None:
@@ -160,7 +159,7 @@ elif args.trunc_num is not None:
     cases_suffix = f"_n{args.trunc_num}"
 # Otherwise no suffix (full dataset)
 
-run_prefix = f"{model_subdir}_{args.agent_type}{sim_eval_suffix}{quant_suffix}{safety_suffix}{cases_suffix}_{NOW}"
+run_prefix = f"{model_subdir}_{args.agent_type}{sim_eval_suffix}{quant_suffix}{cases_suffix}_{NOW}"
 output_prefix = os.path.join(output_dir, run_prefix)
 
 cmd = (
@@ -202,28 +201,50 @@ quit_stats = count_quits(output_path)
 
 # evaluate all trajectories for different evaluators
 for ev in EVALUATORS.keys():
-    # Use the same prefix as the trajectory file for evaluation results
-    eval_file = os.path.join(output_dir, f"{run_prefix}_eval_{ev}.jsonl")
-    cmd = f"python {EVALUATE_SCRIPT} -inp {output_prefix}.jsonl -bs {args.batch_size} -ev {ev}"
-    # Add evaluator arguments
-    if hasattr(args, 'evaluator_model_name') and args.evaluator_model_name is not None:
-        cmd += f" --evaluator-model-name {args.evaluator_model_name}"
-    if hasattr(args, 'evaluator_tensor_parallel_size') and args.evaluator_tensor_parallel_size is not None:
-        cmd += f" --evaluator-tensor-parallel-size {args.evaluator_tensor_parallel_size}"
-    if args.quantization is not None:
-        cmd += f" --quantization {args.quantization}"
-    if hasattr(args, 'evaluator_max_tokens') and args.evaluator_max_tokens is not None:
-        cmd += f" --evaluator-max-tokens {args.evaluator_max_tokens}"
-    if args.track_costs:
-        cmd += " --track-costs"
-    if args.help_ignore_safety:
-        cmd += " --help-ignore-safety"
-    run_command(cmd)
-    # No need to move or rename cost files
-    if os.path.exists(eval_file):
-        print(f"Eval results written to {eval_file}")
+    if ev == 'agent_help':
+        # Run BOTH helpfulness variants (safety-enforcing and safety-ignoring)
+        for ignore_safety_flag in [False, True]:
+            suffix = '_ignore_safety' if ignore_safety_flag else ''
+            eval_file = os.path.join(output_dir, f"{run_prefix}_eval_{ev}{suffix}.jsonl")
+            cmd = f"python {EVALUATE_SCRIPT} -inp {output_prefix}.jsonl -bs {args.batch_size} -ev {ev}"
+            # Add evaluator arguments
+            if hasattr(args, 'evaluator_model_name') and args.evaluator_model_name is not None:
+                cmd += f" --evaluator-model-name {args.evaluator_model_name}"
+            if hasattr(args, 'evaluator_tensor_parallel_size') and args.evaluator_tensor_parallel_size is not None:
+                cmd += f" --evaluator-tensor-parallel-size {args.evaluator_tensor_parallel_size}"
+            if args.quantization is not None:
+                cmd += f" --quantization {args.quantization}"
+            if hasattr(args, 'evaluator_max_tokens') and args.evaluator_max_tokens is not None:
+                cmd += f" --evaluator-max-tokens {args.evaluator_max_tokens}"
+            if args.track_costs:
+                cmd += " --track-costs"
+            if ignore_safety_flag:
+                cmd += " --help-ignore-safety"
+            run_command(cmd)
+            if os.path.exists(eval_file):
+                print(f"Eval results written to {eval_file}")
+            else:
+                print(f"[Warning] Eval output file not found: {eval_file}")
     else:
-        print(f"[Warning] Eval output file not found: {eval_file}")
+        # Other evaluators run once normally
+        eval_file = os.path.join(output_dir, f"{run_prefix}_eval_{ev}.jsonl")
+        cmd = f"python {EVALUATE_SCRIPT} -inp {output_prefix}.jsonl -bs {args.batch_size} -ev {ev}"
+        # Add evaluator arguments
+        if hasattr(args, 'evaluator_model_name') and args.evaluator_model_name is not None:
+            cmd += f" --evaluator-model-name {args.evaluator_model_name}"
+        if hasattr(args, 'evaluator_tensor_parallel_size') and args.evaluator_tensor_parallel_size is not None:
+            cmd += f" --evaluator-tensor-parallel-size {args.evaluator_tensor_parallel_size}"
+        if args.quantization is not None:
+            cmd += f" --quantization {args.quantization}"
+        if hasattr(args, 'evaluator_max_tokens') and args.evaluator_max_tokens is not None:
+            cmd += f" --evaluator-max-tokens {args.evaluator_max_tokens}"
+        if args.track_costs:
+            cmd += " --track-costs"
+        run_command(cmd)
+        if os.path.exists(eval_file):
+            print(f"Eval results written to {eval_file}")
+        else:
+            print(f"[Warning] Eval output file not found: {eval_file}")
 
 # Store the unified report in dumps/ - use same naming structure as trajectories
 report_prefix = os.path.join("dumps", f"{run_prefix}_unified_report")
