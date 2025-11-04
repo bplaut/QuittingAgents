@@ -45,7 +45,8 @@ SIMULATOR_MODEL=""
 EVALUATOR_MODEL=""
 AGENT_TYPES=()
 QUANTIZATIONS=()
-TRUNC_NUM=""
+TASK_INDEX_RANGE=""
+PARALLEL_SPLITS=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -82,8 +83,12 @@ while [[ $# -gt 0 ]]; do
                 shift
             done
             ;;
-        --trunc-num)
-            TRUNC_NUM="$2"
+        --task-index-range)
+            TASK_INDEX_RANGE="$2"
+            shift 2
+            ;;
+        --parallel-splits)
+            PARALLEL_SPLITS="$2"
             shift 2
             ;;
         *)
@@ -124,53 +129,88 @@ if [ ${#QUANTIZATIONS[@]} -eq 0 ]; then
     exit 1
 fi
 
+# Calculate task index ranges
+# If parallel-splits specified, calculate ranges automatically
+# Otherwise use task-index-range or full dataset
+if [ -n "$PARALLEL_SPLITS" ]; then
+    TOTAL_TASKS=144
+    BASE_SIZE=$((TOTAL_TASKS / PARALLEL_SPLITS))
+    REMAINDER=$((TOTAL_TASKS % PARALLEL_SPLITS))
+
+    # Generate ranges array
+    RANGES=()
+    START=0
+    for i in $(seq 0 $((PARALLEL_SPLITS - 1))); do
+        # First REMAINDER jobs get BASE_SIZE+1, rest get BASE_SIZE
+        if [ $i -lt $REMAINDER ]; then
+            SIZE=$((BASE_SIZE + 1))
+        else
+            SIZE=$BASE_SIZE
+        fi
+        END=$((START + SIZE))
+        RANGES+=("$START-$END")
+        START=$END
+    done
+elif [ -n "$TASK_INDEX_RANGE" ]; then
+    RANGES=("$TASK_INDEX_RANGE")
+else
+    RANGES=("")  # Full dataset
+fi
+
 # Calculate total number of jobs
-TOTAL_JOBS=$((${#AGENT_MODELS[@]} * ${#AGENT_TYPES[@]} * ${#QUANTIZATIONS[@]}))
+TOTAL_JOBS=$((${#RANGES[@]} * ${#AGENT_MODELS[@]} * ${#AGENT_TYPES[@]} * ${#QUANTIZATIONS[@]}))
 echo "========================================="
 echo "Submitting $TOTAL_JOBS job(s) for the following cross product:"
 echo "  Agent models: ${AGENT_MODELS[*]}"
 echo "  Agent types: ${AGENT_TYPES[*]}"
 echo "  Quantizations: ${QUANTIZATIONS[*]}"
+if [ ${#RANGES[@]} -gt 1 ]; then
+    echo "  Task ranges: ${RANGES[*]}"
+elif [ -n "${RANGES[0]}" ]; then
+    echo "  Task range: ${RANGES[0]}"
+else
+    echo "  Task range: (full dataset)"
+fi
 echo "  Simulator: $SIMULATOR_MODEL"
 echo "  Evaluator: $EVALUATOR_MODEL"
-if [ -n "$TRUNC_NUM" ]; then
-    echo "  Trunc num: $TRUNC_NUM"
-else
-    echo "  Trunc num: (full dataset)"
-fi
 echo "========================================="
 echo ""
 
 JOB_COUNT=0
 
 # Generate and submit all combinations
-for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
-    for AGENT_TYPE in "${AGENT_TYPES[@]}"; do
-        for QUANTIZATION in "${QUANTIZATIONS[@]}"; do
-            JOB_COUNT=$((JOB_COUNT + 1))
+for RANGE in "${RANGES[@]}"; do
+    for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
+        for AGENT_TYPE in "${AGENT_TYPES[@]}"; do
+            for QUANTIZATION in "${QUANTIZATIONS[@]}"; do
+                JOB_COUNT=$((JOB_COUNT + 1))
 
-            echo "[$JOB_COUNT/$TOTAL_JOBS] Submitting: agent=$AGENT_MODEL, type=$AGENT_TYPE, quant=$QUANTIZATION"
+                if [ -n "$RANGE" ]; then
+                    echo "[$JOB_COUNT/$TOTAL_JOBS] Submitting: agent=$AGENT_MODEL, type=$AGENT_TYPE, quant=$QUANTIZATION, range=$RANGE"
+                else
+                    echo "[$JOB_COUNT/$TOTAL_JOBS] Submitting: agent=$AGENT_MODEL, type=$AGENT_TYPE, quant=$QUANTIZATION"
+                fi
 
-            # Calculate GPU requirements
-            AGENT_SIZE=$(get_model_size "$AGENT_MODEL")
-            SIMULATOR_SIZE=$(get_model_size "$SIMULATOR_MODEL")
-            TOTAL_SIZE=$((AGENT_SIZE + SIMULATOR_SIZE))
+                # Calculate GPU requirements
+                AGENT_SIZE=$(get_model_size "$AGENT_MODEL")
+                SIMULATOR_SIZE=$(get_model_size "$SIMULATOR_MODEL")
+                TOTAL_SIZE=$((AGENT_SIZE + SIMULATOR_SIZE))
 
-            # Build positional arguments
-            # Order: input_path agent_model simulator_model evaluator_model agent_type quantization [trunc_num]
-            RUN_ARGS=(
-                "$INPUT_PATH"
-                "$AGENT_MODEL"
-                "$SIMULATOR_MODEL"
-                "$EVALUATOR_MODEL"
-                "$AGENT_TYPE"
-                "$QUANTIZATION"
-            )
+                # Build positional arguments
+                # Order: input_path agent_model simulator_model evaluator_model agent_type quantization [task_index_range]
+                RUN_ARGS=(
+                    "$INPUT_PATH"
+                    "$AGENT_MODEL"
+                    "$SIMULATOR_MODEL"
+                    "$EVALUATOR_MODEL"
+                    "$AGENT_TYPE"
+                    "$QUANTIZATION"
+                )
 
-            # Add optional trunc_num if set
-            if [ -n "$TRUNC_NUM" ]; then
-                RUN_ARGS+=("$TRUNC_NUM")
-            fi
+                # Add optional task-index-range if set
+                if [ -n "$RANGE" ]; then
+                    RUN_ARGS+=("$RANGE")
+                fi
 
             # If both agent and simulator are API models (size 0), use no-GPU script
             if [ "$AGENT_SIZE" -eq 0 ] && [ "$SIMULATOR_SIZE" -eq 0 ]; then
@@ -196,6 +236,7 @@ for AGENT_MODEL in "${AGENT_MODELS[@]}"; do
                 sbatch --nodes=1 --nodelist="$NODELIST" run_toolemu.sh "${RUN_ARGS[@]}"
             fi
 
+            done
         done
     done
 done

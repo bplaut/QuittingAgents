@@ -11,10 +11,7 @@ class DataLoader:
     def __init__(
         self,
         input_path: str,
-        start_index: int,
-        trunc_num: Optional[int] = None,
-        selected_indexes: List[int] = None,
-        removed_indexes: List[int] = None,
+        task_index_range: Optional[str] = None,
         return_mode: str = "item_only",
         num_replicates: int = 1,
         item_name: str = "item",
@@ -24,15 +21,8 @@ class DataLoader:
     ):
         if return_mode not in ["item_only", "with_idx"]:
             raise ValueError("return_mode must be one of 'item_only' and 'with_idx'.")
-        if selected_indexes is not None and removed_indexes is not None:
-            raise ValueError(
-                "selected_indexes and removed_indexes cannot be used together."
-            )
         self._input_path = input_path
-        self._start_index = start_index
-        self._trunc_num = trunc_num
-        self._selected_indexes = selected_indexes
-        self._removed_indexes = removed_indexes
+        self._task_index_range = task_index_range
         self._return_mode = return_mode
         self._num_replicates = num_replicates
         self._item_name = item_name
@@ -63,26 +53,18 @@ class DataLoader:
         if not apply_filter:
             return data_with_idx
 
-        end_index = (
-            total if self._trunc_num is None else self._start_index + self._trunc_num
-        )
-        data_with_idx = data_with_idx[self._start_index : end_index]
-
-        if self._selected_indexes is not None:
-            data_with_idx = [
-                item for item in data_with_idx if item["idx"] in self._selected_indexes
-            ]
-        elif self._removed_indexes is not None:
-            data_with_idx = [
-                item
-                for item in data_with_idx
-                if item["idx"] not in self._removed_indexes
-            ]
+        # Apply task index range filtering
+        if self._task_index_range is not None:
+            # Parse range format: "START-END" (left-inclusive, right-exclusive)
+            start, end = map(int, self._task_index_range.split('-'))
+            data_with_idx = data_with_idx[start:end]
+            if self._verbose:
+                print(
+                    f"Using [{self._item_name}]s "
+                    f"from {start} to {end - 1} (inclusive)."
+                )
         elif self._verbose:
-            print(
-                f"Using [{self._item_name}]s "
-                f"from {self._start_index} to {end_index - 1} (inclusive)."
-            )
+            print(f"Using all [{self._item_name}]s (no range specified).")
 
         if self._verbose:
             print(f"Totally {len(data_with_idx)} [{self._item_name}]s after filtering.")
@@ -151,34 +133,11 @@ class DataLoader:
                 help="The path of the input file",
             )
         parser.add_argument(
-            f"--{prefix}start-index",
-            f"-{shortprefix}si",
-            type=int,
-            default=0,
-            help="The start index",
-        )
-        parser.add_argument(
-            f"--{prefix}trunc-num",
-            f"-{shortprefix}tn",
-            type=int,
+            f"--{prefix}task-index-range",
+            f"-{shortprefix}tir",
+            type=str,
             default=None,
-            help="The number of items to use",
-        )
-        parser.add_argument(
-            f"--{prefix}selected-indexes",
-            f"-{shortprefix}sid",
-            nargs="+",
-            type=int,
-            default=None,
-            help="The indexes of the items to select",
-        )
-        parser.add_argument(
-            f"--{prefix}removed-indexes",
-            f"-{shortprefix}rid",
-            nargs="+",
-            type=int,
-            default=None,
-            help="The indexes of the items to remove",
+            help="Task index range in format START-END (e.g., 0-48 for tasks [0,48)). Left-inclusive, right-exclusive.",
         )
         parser.add_argument(
             f"--{prefix}num-replicates",
@@ -209,10 +168,7 @@ class DataLoader:
         args_dict = {}
         for name in [
             "input_path",
-            "start_index",
-            "trunc_num",
-            "selected_indexes",
-            "removed_indexes",
+            "task_index_range",
             "num_replicates",
             "shuffle",
         ]:

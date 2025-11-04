@@ -16,7 +16,7 @@ set -e
 
 # Usage (positional arguments):
 #   This script is called by submit_toolemu.sh with positional arguments.
-#     no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num]
+#     no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [task_index_range]
 #
 #   Example:
 #     sbatch --nodes=1 no_gpu_run_toolemu.sh \
@@ -26,7 +26,7 @@ set -e
 #       gpt-5-mini \
 #       quit \
 #       int4 \
-#       10
+#       0-48
 
 # Parse positional arguments
 INPUT_PATH="$1"
@@ -35,13 +35,13 @@ SIMULATOR_MODEL="$3"
 EVALUATOR_MODEL="$4"
 AGENT_TYPE="$5"
 QUANTIZATION="$6"
-TRUNC_NUM="${7:-}"  # Optional, default to empty
+TASK_INDEX_RANGE="${7:-}"  # Optional, default to empty
 
 # Validate required arguments
 if [ -z "$INPUT_PATH" ] || [ -z "$AGENT_MODEL" ] || [ -z "$SIMULATOR_MODEL" ] || \
    [ -z "$EVALUATOR_MODEL" ] || [ -z "$AGENT_TYPE" ] || [ -z "$QUANTIZATION" ]; then
     echo "Error: Missing required positional arguments"
-    echo "Usage: no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [trunc_num]"
+    echo "Usage: no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <quantization> [task_index_range]"
     exit 1
 fi
 
@@ -80,8 +80,8 @@ CMD=(
     -bs 1
 )
 
-if [ -n "$TRUNC_NUM" ]; then
-    CMD+=(--trunc-num "$TRUNC_NUM")
+if [ -n "$TASK_INDEX_RANGE" ]; then
+    CMD+=(--task-index-range "$TASK_INDEX_RANGE")
 fi
 
 # Run the evaluation
@@ -91,8 +91,8 @@ echo "  Simulator: $SIMULATOR_MODEL"
 echo "  Evaluator: $EVALUATOR_MODEL"
 echo "  Agent type: $AGENT_TYPE"
 echo "  Quantization: $QUANTIZATION"
-if [ -n "$TRUNC_NUM" ]; then
-    echo "  Trunc num: $TRUNC_NUM"
+if [ -n "$TASK_INDEX_RANGE" ]; then
+    echo "  Task index range: $TASK_INDEX_RANGE"
 fi
 
 "${CMD[@]}" || { echo "Evaluation failed"; exit 1; }

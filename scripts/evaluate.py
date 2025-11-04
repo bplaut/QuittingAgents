@@ -37,10 +37,7 @@ parser.add_argument("--random-seed", "-seed", type=int, default=42)
 parser.add_argument("--track-costs", action="store_true", help="Enable cost tracking for all components")
 parser.add_argument("-inp", "--input-path", type=str, required=True, help="Input trajectories file")
 parser.add_argument("-bs", "--batch-size", type=int, default=1, help="Batch size for evaluation")
-parser.add_argument("--start-index", type=int, default=0, help="The start index")
-parser.add_argument("--trunc-num", type=int, default=None, help="The number of items to use")
-parser.add_argument("--selected-indexes", nargs="+", type=int, default=None, help="The indexes of the items to select")
-parser.add_argument("--removed-indexes", nargs="+", type=int, default=None, help="The indexes of the items to remove")
+parser.add_argument("--task-index-range", "-tir", type=str, default=None, help="Task index range in format START-END (e.g., 0-48 for tasks [0,48)). Left-inclusive, right-exclusive.")
 parser.add_argument("--num-replicates", type=int, default=1, help="The number of replicates")
 parser.add_argument("--shuffle", action="store_true", help="Whether to shuffle the data")
 parser.add_argument("--critique-rounds", type=int, default=0, help="Number of critique rounds (not supported yet)")
@@ -115,7 +112,11 @@ def main():
         modelname, quit_type = "model", "quit"
     # Extract the full prefix from the input path (without extension)
     input_prefix = os.path.splitext(base)[0]
-    output_filename = f"{input_prefix}_eval_{args.eval_type}.jsonl"
+    # Add suffix for help-ignore-safety evaluations
+    eval_suffix = ""
+    if args.eval_type == "agent_help" and args.help_ignore_safety:
+        eval_suffix = "_ignore_safety"
+    output_filename = f"{input_prefix}_eval_{args.eval_type}{eval_suffix}.jsonl"
     if input_dir:
         output_path = os.path.join(input_dir, output_filename)
     else:

@@ -150,13 +150,9 @@ else:
 quant_suffix = f"_{args.quantization}" if args.quantization else ""
 # Add test case info to filename
 cases_suffix = ""
-if args.selected_indexes is not None:
-    # Use hyphen-concatenated indices
-    idx_str = "-".join(map(str, args.selected_indexes))
-    cases_suffix = f"_idx{idx_str}"
-elif args.trunc_num is not None:
-    # Use count
-    cases_suffix = f"_n{args.trunc_num}"
+if args.task_index_range is not None:
+    # Use range format (e.g., _r0-48)
+    cases_suffix = f"_r{args.task_index_range}"
 # Otherwise no suffix (full dataset)
 
 run_prefix = f"{model_subdir}_{args.agent_type}{sim_eval_suffix}{quant_suffix}{cases_suffix}_{NOW}"
@@ -170,8 +166,8 @@ cmd = (
 )
 if args.agent_max_tokens is not None:
     cmd += f" --agent-max-tokens {args.agent_max_tokens}"
-if args.trunc_num is not None:
-    cmd += f" -tn {args.trunc_num}"
+if args.task_index_range is not None:
+    cmd += f" --task-index-range {args.task_index_range}"
 if args.batch_size is not None:
     cmd += f" -bs {args.batch_size}"
 if args.quantization is not None:

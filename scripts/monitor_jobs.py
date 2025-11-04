@@ -11,8 +11,23 @@ import subprocess
 import os
 import glob
 import time
+import re
 from datetime import datetime, timedelta
 from collections import defaultdict
+
+def parse_task_count_from_filename(filename):
+    """Extract total task count from filename range (e.g., _r0-29_ -> 29 tasks, _r29-58_ -> 29 tasks)."""
+    if not filename:
+        return 144  # Default to full dataset
+
+    # Look for range pattern: _rSTART-END_
+    match = re.search(r'_r(\d+)-(\d+)_', filename)
+    if match:
+        start = int(match.group(1))
+        end = int(match.group(2))
+        return end - start  # Python slice semantics: [start, end)
+
+    return 144  # Default to full dataset if no range found
 
 def get_running_jobs(username):
     """Get list of running/pending toolemu jobs for user."""
@@ -53,6 +68,7 @@ def get_trajectory_progress(job_id):
             sim_model = None
             agent_type = None
             quantization = None
+            task_range = None
 
             for line in content.split('\n'):
                 if line.strip().startswith('Agent:'):
@@ -63,6 +79,8 @@ def get_trajectory_progress(job_id):
                     agent_type = line.split('Agent type:')[-1].strip()
                 elif line.strip().startswith('Quantization:'):
                     quantization = line.split('Quantization:')[-1].strip()
+                elif line.strip().startswith('Task index range:'):
+                    task_range = line.split('Task index range:')[-1].strip()
 
             if not (agent_model and sim_model and agent_type):
                 return None, None, None, None, None
@@ -71,15 +89,16 @@ def get_trajectory_progress(job_id):
             agent_safe = agent_model.replace('/', '_').replace(' ', '_')
             sim_safe = sim_model.replace('/', '_').replace(' ', '_')
 
-            # Look for matching trajectory files
+            # Build file pattern including task range if present
+            range_pattern = f"_r{task_range}_" if task_range else "_"
             pattern = f"dumps/trajectories/{agent_safe}/{agent_safe}_{agent_type}_sim-{sim_safe}_*.jsonl"
             matches = glob.glob(pattern)
 
             # Filter out eval/costs/quit_stats files
             traj_files = [f for f in matches
-                         if 'eval' not in f and 'costs' not in f and 'quit_stats' not in f]
+                         if 'eval' not in f and 'costs' not in f and 'quit_stats' not in f and 'unified_report' not in f]
 
-            # Find the most recent one that matches our quantization
+            # Find the most recent one that matches our quantization and task range
             best_match = None
             best_mtime = 0
 
@@ -87,6 +106,11 @@ def get_trajectory_progress(job_id):
                 # Check if quantization matches
                 if quantization:
                     if quantization not in traj_file:
+                        continue
+
+                # Check if task range matches (if specified)
+                if task_range:
+                    if f"_r{task_range}_" not in traj_file:
                         continue
 
                 mtime = os.path.getmtime(traj_file)
@@ -102,6 +126,7 @@ def get_trajectory_progress(job_id):
                 # Count eval file lines
                 base_path = best_match.replace('.jsonl', '')
                 safe_eval_file = f"{base_path}_eval_agent_safe.jsonl"
+                # Use only the regular help eval (not ignore_safety variant)
                 help_eval_file = f"{base_path}_eval_agent_help.jsonl"
 
                 safe_lines = 0
@@ -143,7 +168,7 @@ def format_time(seconds):
         mins = (seconds % 3600) // 60
         return f"{hours}h {mins}m"
 
-def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_seconds):
+def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_seconds, total_tasks=144):
     """Estimate time to completion based on current progress."""
     # Trajectory generation is much slower than evaluation (agent + simulator running multiple steps)
     # Weight trajectories higher: roughly 4x slower than a single evaluation
@@ -157,9 +182,9 @@ def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec
                            safe_progress * EVAL_WEIGHT +
                            help_progress * EVAL_WEIGHT)
 
-    # Total weighted units of work
-    total_weighted_units = 144 * TRAJ_WEIGHT + 144 * EVAL_WEIGHT + 144 * EVAL_WEIGHT
-    # = 576 + 144 + 144 = 864 weighted units
+    # Total weighted units of work (based on actual task count, not hardcoded 144)
+    total_weighted_units = total_tasks * TRAJ_WEIGHT + total_tasks * EVAL_WEIGHT + total_tasks * EVAL_WEIGHT
+    # = total_tasks * 6 weighted units
 
     if weighted_units_done == 0:
         return "Unknown"
@@ -278,10 +303,12 @@ def print_job_summary(jobs, show_pending=True):
             elapsed_sec = parse_time(job['time'])
 
             if traj_progress is not None:
-                traj_str = f"{traj_progress}/144"
-                safe_str = f"{safe_progress}/144"
-                help_str = f"{help_progress}/144"
-                eta = estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec)
+                # Parse actual task count from filename
+                total_tasks = parse_task_count_from_filename(filename)
+                traj_str = f"{traj_progress}/{total_tasks}"
+                safe_str = f"{safe_progress}/{total_tasks}"
+                help_str = f"{help_progress}/{total_tasks}"
+                eta = estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec, total_tasks)
                 agent, atype, sim = get_job_config(filename)
                 quant_str = quant if quant else "?"
             else:
