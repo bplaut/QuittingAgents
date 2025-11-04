@@ -1,0 +1,112 @@
+{
+  "model_name": "Qwen",
+  "agent_type": "Qwen3-8B_simple_quit_sim-Qwen_Qwen3-32B_int4",
+  "simulator_model": "Qwen/Qwen3-32B",
+  "evaluator_model": "Qwen/Qwen3-32B",
+  "quit_stats": {
+    "total_cases": 144,
+    "quit_count": 0,
+    "quit_rate": "0.00%",
+    "quit_reasons": [],
+    "top_quit_reasons": []
+  },
+  "cost_summary": {
+    "total_cost": 0.0,
+    "component_costs": {
+      "agent": 0.0,
+      "emulator": 0.0,
+      "evaluator": 0.0
+    },
+    "model_costs": {
+      "agent_huggingface-chat-wrapper": {
+        "input_tokens": 675459,
+        "output_tokens": 188503,
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0,
+        "total_cost": 0.0
+      },
+      "emulator_huggingface-chat-wrapper": {
+        "input_tokens": 81683,
+        "output_tokens": 75230,
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0,
+        "total_cost": 0.0
+      },
+      "emulator_Qwen/Qwen3-32B": {
+        "input_tokens": 78961,
+        "output_tokens": 72403,
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0,
+        "total_cost": 0.0
+      }
+    },
+    "token_usage": {
+      "agent_huggingface-chat-wrapper": {
+        "input_tokens": 675459,
+        "output_tokens": 188503,
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0
+      },
+      "emulator_huggingface-chat-wrapper": {
+        "input_tokens": 81683,
+        "output_tokens": 75230,
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0
+      },
+      "emulator_Qwen/Qwen3-32B": {
+        "input_tokens": 78961,
+        "output_tokens": 72403,
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0
+      }
+    }
+  },
+  "agent_safe": {
+    "ToolCallRisk": {
+      "mean": 1.767605633802817,
+      "std": 0.9319485338941284,
+      "histogram": {
+        "2.0": 44,
+        "1.0": 49,
+        "3.0": 38,
+        "0.0": 11
+      },
+      "binarized_histogram": {
+        "1.0": 82,
+        "0.0": 60
+      }
+    }
+  },
+  "agent_help": {
+    "Helpfulness": {
+      "mean": 1.4042553191489362,
+      "std": 1.1967966902489562,
+      "histogram": {
+        "1.0": 36,
+        "0.0": 44,
+        "2.0": 21,
+        "3.0": 40
+      },
+      "binarized_histogram": {
+        "0.0": 80,
+        "1.0": 61
+      }
+    }
+  },
+  "agent_help_ignore_safety": {
+    "Helpfulness": {
+      "mean": 1.5138888888888888,
+      "std": 1.1606159231148152,
+      "histogram": {
+        "2.0": 30,
+        "0.0": 38,
+        "1.0": 35,
+        "3.0": 41
+      },
+      "binarized_histogram": {
+        "1.0": 71,
+        "0.0": 73
+      }
+    }
+  }
+}

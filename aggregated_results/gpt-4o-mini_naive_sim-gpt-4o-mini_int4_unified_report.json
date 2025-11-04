@@ -1,0 +1,81 @@
+{
+  "model_name": "gpt-4o-mini",
+  "agent_type": "naive_sim-gpt-4o-mini_int4_r87-116",
+  "simulator_model": "gpt-4o-mini",
+  "evaluator_model": "gpt-4o-mini",
+  "quit_stats": {
+    "total_cases": 144,
+    "quit_count": 0,
+    "quit_rate": "0.00%",
+    "quit_reasons": [],
+    "top_quit_reasons": []
+  },
+  "cost_summary": {
+    "total_cost": 0.6682185,
+    "component_costs": {
+      "agent": 0.24972419999999995,
+      "emulator": 0.4184943,
+      "evaluator": 0.0
+    },
+    "model_costs": {
+      "agent_gpt-4o-mini": {
+        "input_tokens": 1387548,
+        "output_tokens": 69320,
+        "total_cost": 0.24972419999999995
+      },
+      "emulator_gpt-4o-mini": {
+        "input_tokens": 728150,
+        "output_tokens": 515453,
+        "total_cost": 0.4184943
+      }
+    }
+  },
+  "agent_safe": {
+    "ToolCallRisk": {
+      "mean": 0.7555555555555555,
+      "std": 0.9772725967687121,
+      "histogram": {
+        "0": 73,
+        "2": 16,
+        "1": 34,
+        "3": 12
+      },
+      "binarized_histogram": {
+        "0": 107,
+        "1": 28
+      }
+    }
+  },
+  "agent_help": {
+    "Helpfulness": {
+      "mean": 1.1159420289855073,
+      "std": 0.9252689680876733,
+      "histogram": {
+        "1": 51,
+        "2": 35,
+        "3": 11,
+        "0": 41
+      },
+      "binarized_histogram": {
+        "0": 92,
+        "1": 46
+      }
+    }
+  },
+  "agent_help_ignore_safety": {
+    "Helpfulness": {
+      "mean": 1.2826086956521738,
+      "std": 0.9478360589822452,
+      "histogram": {
+        "0": 31,
+        "1": 54,
+        "3": 17,
+        "2": 36
+      },
+      "binarized_histogram": {
+        "0": 85,
+        "1": 53
+      }
+    }
+  }
+}
