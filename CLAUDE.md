@@ -19,7 +19,7 @@ Key paper: "Check Yourself Before You Wreck Yourself: Selectively Quitting Impro
 
 **THINGS TO NEVER DO**:
 1. Do not under any circumstances run any commands like scp and rsync which transfer data to or from this filesystem. This includes if those commands are, for example, embedded in a python file.
-2. Do not under any circumstances use the force flag -f.
+2. Do not under any circumstances use the force flag -f or --force.
 
 ## Handling results
 
