@@ -3,9 +3,14 @@
 Aggregate results from multiple parallel ToolEmu runs into a unified report.
 
 Usage:
+    # Auto-detect and aggregate all patterns in a directory
+    python scripts/aggregate_results.py --input-dir results/
+
+    # Specify input and output directories
+    python scripts/aggregate_results.py --input-dir results/ --output-dir aggregated/
+
+    # Legacy mode: aggregate a single pattern
     python scripts/aggregate_results.py --pattern "dumps/*_r*_unified_report_*.json"
-    python scripts/aggregate_results.py --files file1.json file2.json file3.json
-    python scripts/aggregate_results.py --pattern "..." --output aggregated_report.json
 """
 
 import argparse
@@ -33,8 +38,9 @@ def extract_base_config(filename: str) -> str:
     """
     # Remove range suffix (_r\d+-\d+)
     base = re.sub(r'_r\d+-\d+', '', filename)
-    # Remove timestamp suffix (_\d{8}_\d{6})
+    # Remove timestamp suffix (_\d{8}_\d{6} or _\d{4}_\d{6})
     base = re.sub(r'_\d{8}_\d{6}', '', base)
+    base = re.sub(r'_\d{4}_\d{6}', '', base)
     # Remove file extension
     base = re.sub(r'\.json$', '', base)
     # Remove unified_report suffix if present
@@ -237,54 +243,57 @@ def aggregate_reports(reports: List[Dict[str, Any]]) -> Dict[str, Any]:
     return unified
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Aggregate results from multiple parallel ToolEmu runs",
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument(
-        '--pattern',
-        type=str,
-        help='Glob pattern for report files (e.g., "dumps/*_r*_unified_report_*.json")'
-    )
-    parser.add_argument(
-        '--files',
-        nargs='+',
-        type=str,
-        help='Explicit list of report files to aggregate'
-    )
-    parser.add_argument(
-        '--output',
-        type=str,
-        default=None,
-        help='Output path for aggregated report (default: auto-generated)'
-    )
-    parser.add_argument(
-        '--expected-total',
-        type=int,
-        default=144,
-        help='Expected total number of tasks (default: 144)'
-    )
+def discover_patterns(input_dir: str) -> Dict[str, List[str]]:
+    """
+    Auto-discover all unique configuration patterns in the input directory.
 
-    args = parser.parse_args()
+    Returns:
+        Dict mapping base_config -> list of report files
+    """
+    # Find all unified report files with ranges
+    pattern = os.path.join(input_dir, "*_r*_*_unified_report.json")
+    all_files = glob.glob(pattern)
 
-    # Collect report files
-    if args.pattern:
-        report_files = glob.glob(args.pattern)
-    elif args.files:
-        report_files = args.files
-    else:
-        parser.error("Must specify either --pattern or --files")
+    if not all_files:
+        print(f"Warning: No files matching pattern {pattern}")
+        return {}
 
-    if not report_files:
-        print("Error: No report files found")
-        return 1
+    # Group by base config
+    config_groups = collections.defaultdict(list)
 
+    for filepath in all_files:
+        filename = os.path.basename(filepath)
+
+        # Check if this has a range
+        if parse_range_from_filename(filename) is None:
+            continue
+
+        # Extract base config
+        base_config = extract_base_config(filename)
+        config_groups[base_config].append(filepath)
+
+    return dict(config_groups)
+
+
+def aggregate_single_config(
+    report_files: List[str],
+    base_config: str,
+    output_dir: str,
+    expected_total: int
+) -> bool:
+    """
+    Aggregate a single configuration.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    print(f"\n{'='*60}")
+    print(f"Processing: {base_config}")
+    print(f"{'='*60}")
     print(f"Found {len(report_files)} report file(s)")
 
     # Load reports
     reports_with_ranges = []
-    base_configs = set()
 
     for report_file in report_files:
         try:
@@ -297,10 +306,6 @@ def main():
                 print(f"Warning: Could not parse range from {report_file}, skipping")
                 continue
 
-            # Extract base config
-            base_config = extract_base_config(os.path.basename(report_file))
-            base_configs.add(base_config)
-
             report['range'] = range_tuple
             report['file'] = report_file
             reports_with_ranges.append(report)
@@ -310,20 +315,14 @@ def main():
             continue
 
     if not reports_with_ranges:
-        print("Error: No valid reports loaded")
-        return 1
-
-    # Check that all reports are for the same configuration
-    if len(base_configs) > 1:
-        print(f"Error: Reports have different configurations: {base_configs}")
-        print("All reports must be for the same model/agent-type/quantization")
-        return 1
+        print(f"Error: No valid reports loaded for {base_config}")
+        return False
 
     # Validate completeness
-    is_valid, message = validate_completeness(reports_with_ranges, args.expected_total)
+    is_valid, message = validate_completeness(reports_with_ranges, expected_total)
     if not is_valid:
         print(f"Error: {message}")
-        return 1
+        return False
 
     print(f"✓ Validation passed: {message}")
 
@@ -332,31 +331,215 @@ def main():
     unified_report = aggregate_reports(reports_with_ranges)
 
     # Determine output path
-    if args.output:
-        output_path = args.output
-    else:
-        # Auto-generate output path
-        base_config = list(base_configs)[0]
-        output_path = f"dumps/{base_config}_unified_report_aggregated.json"
+    output_path = os.path.join(output_dir, f"{base_config}_unified_report.json")
 
     # Write output
-    os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(unified_report, f, indent=2)
 
-    print(f"\n✓ Aggregated report saved to: {output_path}")
+    print(f"✓ Aggregated report saved to: {output_path}")
 
     # Print summary
-    print("\n=== Aggregation Summary ===")
+    print("\n--- Summary ---")
     print(f"Model: {unified_report.get('model_name', 'N/A')}")
     print(f"Agent Type: {unified_report.get('agent_type', 'N/A')}")
     print(f"Total Cases: {unified_report.get('quit_stats', {}).get('total_cases', 'N/A')}")
     print(f"Quit Rate: {unified_report.get('quit_stats', {}).get('quit_rate', 'N/A')}")
     if 'cost_summary' in unified_report:
         print(f"Total Cost: ${unified_report['cost_summary'].get('total_cost', 0):.4f}")
-    print("=" * 30)
 
-    return 0
+    return True
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Aggregate results from multiple parallel ToolEmu runs",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Auto-detect and aggregate all patterns
+  python scripts/aggregate_results.py --input-dir results/
+
+  # Specify output directory
+  python scripts/aggregate_results.py --input-dir results/ --output-dir aggregated/
+
+  # Legacy single-pattern mode
+  python scripts/aggregate_results.py --pattern "results/*_r*_unified_report.json" --output output.json
+"""
+    )
+
+    # New mode: directory-based auto-discovery
+    parser.add_argument(
+        '--input-dir',
+        type=str,
+        help='Input directory to scan for report files (auto-discovers all patterns)'
+    )
+    parser.add_argument(
+        '--output-dir',
+        type=str,
+        help='Output directory for aggregated reports (default: same as input-dir)'
+    )
+
+    # Legacy mode: single pattern
+    parser.add_argument(
+        '--pattern',
+        type=str,
+        help='Glob pattern for report files (legacy mode)'
+    )
+    parser.add_argument(
+        '--files',
+        nargs='+',
+        type=str,
+        help='Explicit list of report files to aggregate (legacy mode)'
+    )
+    parser.add_argument(
+        '--output',
+        type=str,
+        default=None,
+        help='Output path for aggregated report (legacy mode)'
+    )
+
+    parser.add_argument(
+        '--expected-total',
+        type=int,
+        default=144,
+        help='Expected total number of tasks (default: 144)'
+    )
+
+    args = parser.parse_args()
+
+    # Determine mode
+    if args.input_dir:
+        # New directory-based mode
+        input_dir = args.input_dir
+        output_dir = args.output_dir if args.output_dir else input_dir
+
+        print(f"Scanning directory: {input_dir}")
+        print(f"Output directory: {output_dir}")
+
+        # Discover all patterns
+        config_groups = discover_patterns(input_dir)
+
+        if not config_groups:
+            print("Error: No valid report files found with ranges")
+            return 1
+
+        print(f"\nFound {len(config_groups)} unique configuration(s) to aggregate:")
+        for base_config in sorted(config_groups.keys()):
+            print(f"  - {base_config} ({len(config_groups[base_config])} files)")
+
+        # Aggregate each configuration
+        success_count = 0
+        fail_count = 0
+
+        for base_config in sorted(config_groups.keys()):
+            report_files = config_groups[base_config]
+            if aggregate_single_config(report_files, base_config, output_dir, args.expected_total):
+                success_count += 1
+            else:
+                fail_count += 1
+
+        # Final summary
+        print(f"\n{'='*60}")
+        print(f"FINAL SUMMARY")
+        print(f"{'='*60}")
+        print(f"Successfully aggregated: {success_count}")
+        print(f"Failed: {fail_count}")
+        print(f"Output directory: {output_dir}")
+
+        return 0 if fail_count == 0 else 1
+
+    else:
+        # Legacy single-pattern mode
+        if args.pattern:
+            report_files = glob.glob(args.pattern)
+        elif args.files:
+            report_files = args.files
+        else:
+            parser.error("Must specify either --input-dir (new mode) or --pattern/--files (legacy mode)")
+
+        if not report_files:
+            print("Error: No report files found")
+            return 1
+
+        print(f"Found {len(report_files)} report file(s)")
+
+        # Load reports
+        reports_with_ranges = []
+        base_configs = set()
+
+        for report_file in report_files:
+            try:
+                with open(report_file, 'r') as f:
+                    report = json.load(f)
+
+                # Extract range from filename
+                range_tuple = parse_range_from_filename(report_file)
+                if range_tuple is None:
+                    print(f"Warning: Could not parse range from {report_file}, skipping")
+                    continue
+
+                # Extract base config
+                base_config = extract_base_config(os.path.basename(report_file))
+                base_configs.add(base_config)
+
+                report['range'] = range_tuple
+                report['file'] = report_file
+                reports_with_ranges.append(report)
+
+            except Exception as e:
+                print(f"Error loading {report_file}: {e}")
+                continue
+
+        if not reports_with_ranges:
+            print("Error: No valid reports loaded")
+            return 1
+
+        # Check that all reports are for the same configuration
+        if len(base_configs) > 1:
+            print(f"Error: Reports have different configurations: {base_configs}")
+            print("All reports must be for the same model/agent-type/quantization")
+            return 1
+
+        # Validate completeness
+        is_valid, message = validate_completeness(reports_with_ranges, args.expected_total)
+        if not is_valid:
+            print(f"Error: {message}")
+            return 1
+
+        print(f"✓ Validation passed: {message}")
+
+        # Aggregate
+        print("Aggregating reports...")
+        unified_report = aggregate_reports(reports_with_ranges)
+
+        # Determine output path
+        if args.output:
+            output_path = args.output
+        else:
+            # Auto-generate output path
+            base_config = list(base_configs)[0]
+            output_path = f"{base_config}_unified_report.json"
+
+        # Write output
+        os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
+        with open(output_path, 'w') as f:
+            json.dump(unified_report, f, indent=2)
+
+        print(f"\n✓ Aggregated report saved to: {output_path}")
+
+        # Print summary
+        print("\n=== Aggregation Summary ===")
+        print(f"Model: {unified_report.get('model_name', 'N/A')}")
+        print(f"Agent Type: {unified_report.get('agent_type', 'N/A')}")
+        print(f"Total Cases: {unified_report.get('quit_stats', {}).get('total_cases', 'N/A')}")
+        print(f"Quit Rate: {unified_report.get('quit_stats', {}).get('quit_rate', 'N/A')}")
+        if 'cost_summary' in unified_report:
+            print(f"Total Cost: ${unified_report['cost_summary'].get('total_cost', 0):.4f}")
+        print("=" * 30)
+
+        return 0
 
 
 if __name__ == '__main__':
