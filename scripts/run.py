@@ -289,17 +289,11 @@ if args.track_costs:
         total_tokens = mdata['input_tokens'] + mdata['output_tokens']
         print(f"  {model}: total_tokens={total_tokens}, input_tokens={mdata['input_tokens']}, output_tokens={mdata['output_tokens']}, cost=${mdata['total_cost']:.4f}")
 
-# Copy unified report to ./results folder for easier access
-import shutil
-results_dir = "./results"
-os.makedirs(results_dir, exist_ok=True)
-
+# Unified report is already saved in the output directory
 report_file = f"{report_prefix}.json"
 if os.path.exists(report_file):
-    dest_path = os.path.join(results_dir, os.path.basename(report_file))
-    shutil.copy2(report_file, dest_path)
     print(f"\n{'='*60}")
-    print(f"Results saved to: {dest_path}")
+    print(f"Unified report saved to: {report_file}")
     print(f"{'='*60}")
 else:
     print(f"\n[Warning] Unified report not found: {report_file}")
