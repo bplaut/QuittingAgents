@@ -29,6 +29,27 @@ def parse_task_count_from_filename(filename):
 
     return 144  # Default to full dataset if no range found
 
+def get_job_start_time(job_id):
+    """Get the start time of a job (when it began running)."""
+    try:
+        result = subprocess.run(
+            ['scontrol', 'show', 'job', job_id],
+            capture_output=True, text=True, check=True
+        )
+        # Parse StartTime from output (format: StartTime=2025-11-04T07:33:27)
+        for line in result.stdout.split('\n'):
+            if 'StartTime=' in line:
+                # Extract timestamp
+                start_str = line.split('StartTime=')[1].split()[0]
+                # Convert to Unix timestamp
+                from datetime import datetime
+                dt = datetime.strptime(start_str, '%Y-%m-%dT%H:%M:%S')
+                return dt.timestamp()
+        return None
+    except:
+        return None
+
+
 def get_running_jobs(username):
     """Get list of running/pending toolemu jobs for user."""
     try:
@@ -41,19 +62,26 @@ def get_running_jobs(username):
             if 'toolemu' in line.lower():
                 parts = line.split(',')
                 if len(parts) >= 5:
+                    job_id = parts[0]
                     jobs.append({
-                        'job_id': parts[0],
+                        'job_id': job_id,
                         'name': parts[1],
                         'state': parts[2],
                         'time': parts[3],
-                        'node': parts[4]
+                        'node': parts[4],
+                        'start_time': get_job_start_time(job_id)  # Add start time
                     })
         return jobs
     except subprocess.CalledProcessError:
         return []
 
-def get_trajectory_progress(job_id):
-    """Find trajectory file for job and count completed cases."""
+def get_trajectory_progress(job_id, job_start_time=None):
+    """Find trajectory file for job and count completed cases.
+
+    Args:
+        job_id: The SLURM job ID
+        job_start_time: Unix timestamp of when the job started (optional)
+    """
     # Find log file for this job
     log_file = f"logs/exp_toolemu_{job_id}.out"
     if not os.path.exists(log_file):
@@ -99,6 +127,7 @@ def get_trajectory_progress(job_id):
                          if 'eval' not in f and 'costs' not in f and 'quit_stats' not in f and 'unified_report' not in f]
 
             # Find the most recent one that matches our quantization and task range
+            # and was created after the job started (to avoid matching old runs)
             best_match = None
             best_mtime = 0
 
@@ -114,6 +143,11 @@ def get_trajectory_progress(job_id):
                         continue
 
                 mtime = os.path.getmtime(traj_file)
+
+                # Only consider files created after job started (with 60s buffer for clock skew)
+                if job_start_time and mtime < (job_start_time - 60):
+                    continue
+
                 if mtime > best_mtime:
                     best_mtime = mtime
                     best_match = traj_file
@@ -325,7 +359,7 @@ def print_job_summary(jobs, show_pending=True):
         print("-"*140)
 
         for job in sorted(running, key=lambda x: x['job_id']):
-            traj_progress, safe_progress, help_progress, filename, quant = get_trajectory_progress(job['job_id'])
+            traj_progress, safe_progress, help_progress, filename, quant = get_trajectory_progress(job['job_id'], job.get('start_time'))
             elapsed_sec = parse_time(job['time'])
 
             if traj_progress is not None:
