@@ -126,11 +126,12 @@ def get_trajectory_progress(job_id):
                 # Count eval file lines
                 base_path = best_match.replace('.jsonl', '')
                 safe_eval_file = f"{base_path}_eval_agent_safe.jsonl"
-                # Use only the regular help eval (not ignore_safety variant)
                 help_eval_file = f"{base_path}_eval_agent_help.jsonl"
+                help_ignore_safety_eval_file = f"{base_path}_eval_agent_help_ignore_safety.jsonl"
 
                 safe_lines = 0
                 help_lines = 0
+                help_ignore_safety_lines = 0
 
                 if os.path.exists(safe_eval_file):
                     with open(safe_eval_file, 'r') as f:
@@ -140,8 +141,15 @@ def get_trajectory_progress(job_id):
                     with open(help_eval_file, 'r') as f:
                         help_lines = sum(1 for _ in f)
 
+                if os.path.exists(help_ignore_safety_eval_file):
+                    with open(help_ignore_safety_eval_file, 'r') as f:
+                        help_ignore_safety_lines = sum(1 for _ in f)
+
+                # Combine both help variants
+                total_help_lines = help_lines + help_ignore_safety_lines
+
                 basename = os.path.basename(best_match)
-                return traj_lines, safe_lines, help_lines, basename, quantization
+                return traj_lines, safe_lines, total_help_lines, basename, quantization
 
     except Exception as e:
         pass
@@ -169,7 +177,11 @@ def format_time(seconds):
         return f"{hours}h {mins}m"
 
 def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_seconds, total_tasks=144):
-    """Estimate time to completion based on current progress."""
+    """Estimate time to completion based on current progress.
+
+    Note: help_progress represents the sum of both help evaluation variants
+    (regular help and help_ignore_safety), so it should be out of 2*total_tasks.
+    """
     # Trajectory generation is much slower than evaluation (agent + simulator running multiple steps)
     # Weight trajectories higher: roughly 4x slower than a single evaluation
     # This is empirically observed: ~3-4 min per trajectory vs ~1 min per eval
@@ -183,8 +195,9 @@ def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec
                            help_progress * EVAL_WEIGHT)
 
     # Total weighted units of work (based on actual task count, not hardcoded 144)
-    total_weighted_units = total_tasks * TRAJ_WEIGHT + total_tasks * EVAL_WEIGHT + total_tasks * EVAL_WEIGHT
-    # = total_tasks * 6 weighted units
+    # Note: help has 2 variants per task (help and help_ignore_safety), so 2*total_tasks help evals
+    total_weighted_units = total_tasks * TRAJ_WEIGHT + total_tasks * EVAL_WEIGHT + (2 * total_tasks) * EVAL_WEIGHT
+    # = total_tasks * 7 weighted units
 
     if weighted_units_done == 0:
         return "Unknown"
@@ -307,7 +320,8 @@ def print_job_summary(jobs, show_pending=True):
                 total_tasks = parse_task_count_from_filename(filename)
                 traj_str = f"{traj_progress}/{total_tasks}"
                 safe_str = f"{safe_progress}/{total_tasks}"
-                help_str = f"{help_progress}/{total_tasks}"
+                # Help includes both help and help_ignore_safety variants, so out of 2*n
+                help_str = f"{help_progress}/{total_tasks * 2}"
                 eta = estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec, total_tasks)
                 agent, atype, sim = get_job_config(filename)
                 quant_str = quant if quant else "?"
