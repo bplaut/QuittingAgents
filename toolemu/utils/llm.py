@@ -169,24 +169,9 @@ def load_openai_llm(model_name: str = "gpt-4o-mini", quantization=None, gpu_memo
     # Set environment variables for the model (this handles GPT models properly)
     ModelEnvManager.set_env_for_model(model_name)
 
-    # Handle GPT models - they should use OpenAI API or OpenRouter
-    if model_name.lower().startswith("gpt"):
-        # Remove temperature from kwargs for GPT models (handled separately)
-        kwargs.pop("temperature", None)
-
-        llm = ChatOpenAI(model_name=model_name, **kwargs)
-        llm.model_name = model_name
-        return llm
-
-    # OpenAI (non-GPT models) and Anthropic
-    if any(model_name.lower().startswith(prefix) for prefix in ["openai", "anthropic", "text-davinci", "gpt4o", "o"]):
-        llm = ChatOpenAI(model_name=model_name, **kwargs)
-        llm.model_name = model_name
-        return llm
-    # HuggingFace transformers (open-weight models)
-    elif "/" in model_name or ModelEnvManager.is_open_weight_model(model_name):
-        # HuggingFace model names typically contain "/" (e.g., "meta-llama/Llama-3.1-8B")
-        # Also handle legacy keywords (qwen, llama, mistral)
+    # Check for HuggingFace models FIRST (before any prefix checks)
+    # All HuggingFace model names contain "/" (e.g., "meta-llama/Llama-3.1-8B", "openai/gpt-oss-20b")
+    if "/" in model_name:
         return _load_transformers_model(
             model_name,
             quantization=quantization,
@@ -197,12 +182,28 @@ def load_openai_llm(model_name: str = "gpt-4o-mini", quantization=None, gpu_memo
             temperature=kwargs.get("temperature", 0.0),
             max_tokens=kwargs.get("max_tokens"),
         )
-    # Fallback: try OpenAI, but warn
-    else:
-        print(f"[WARNING] Unknown model type for '{model_name}', defaulting to OpenAI-compatible loading.")
+
+    # Handle GPT models - they should use OpenAI API or OpenRouter
+    if model_name.lower().startswith("gpt"):
+        # Remove temperature from kwargs for GPT models (handled separately)
+        kwargs.pop("temperature", None)
+
         llm = ChatOpenAI(model_name=model_name, **kwargs)
         llm.model_name = model_name
         return llm
+
+    # OpenAI (non-GPT models), Anthropic, and other API models
+    if any(model_name.lower().startswith(prefix) for prefix in ["anthropic", "claude", "text-davinci", "o1"]):
+        llm = ChatOpenAI(model_name=model_name, **kwargs)
+        llm.model_name = model_name
+        return llm
+
+    # Unknown model - throw error
+    raise ValueError(
+        f"Unknown model type: '{model_name}'. "
+        f"Expected either a HuggingFace model (with '/') or a known API model "
+        f"(gpt-*, claude-*, anthropic/*, o1-*, etc.)"
+    )
 
 def _load_transformers_model(
     model_name: str,
@@ -226,7 +227,13 @@ def _load_transformers_model(
     import torch
 
     print(f"[INFO] Loading HuggingFace model: {model_name}")
-    if quantization:
+
+    # openai/gpt-oss-20b is already pre-quantized with Mxfp4 on HuggingFace
+    # Skip additional BitsAndBytes quantization to avoid conflict
+    if model_name == "openai/gpt-oss-20b" and quantization:
+        print(f"[INFO] Model {model_name} is already pre-quantized, skipping additional quantization")
+        quantization = None
+    elif quantization:
         print(f"[INFO] Using quantization: {quantization}")
 
     # Load tokenizer
