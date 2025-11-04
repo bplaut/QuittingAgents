@@ -290,3 +290,4 @@ Python version: 3.8-3.12 (specified in `setup.py`)
 - For temporary storage, use the local folder ./tmp instead of global /tmp. Do not use /tmp, since that is shared with other users.
 - Always use the same model for simulation (also known as emulation) and evaluation. The agent model can be a different model.
 - End your responses with a confidence level from 0 to 1.
+- If something unexpected happens, default to throwing an error an exiting rather than having a generic fallback. This is because we need to debug why the unexpected thing happened.
