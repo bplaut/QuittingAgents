@@ -21,10 +21,19 @@ Key paper: "Check Yourself Before You Wreck Yourself: Selectively Quitting Impro
 1. Do not under any circumstances run any commands like scp and rsync which transfer data to or from this filesystem. This includes if those commands are, for example, embedded in a python file.
 2. Do not under any circumstances use the force flag -f.
 
-## General guidance
+## Handling results
 
-When reporting results, include the raw safety and helpfulness scores out of 3 and not the percents. First report the high-level averages (safety, helpfulness, and quit rate) in a compact format, then provide a more detailed distributional breakdown. To compute quit rate, look in the trajectories for responses matching the pattern that is indicated in the prompts.
-End your responses with a confidence level from 0 to 1.
+The immediate output of runs are saved in "output". The final results are saved in "aggregated_output". Typically runs will be split into several parallel jobs. The output of each of these jobs will be saved to "output". Then you'll need to aggregate these results by running scripts/aggregate_results.py, which will take as input the dir named "output" and save the results to "aggregated_results". To visualize results, run scripts/compare_results.py on the aggregated_results dir.
+## Models
+
+The typical models used are
+- Qwen/Qwen3-8B (Qwen 8B for short)
+- Qwen/Qwen3-32B (Qwen 32B for short)
+- meta-llama/Llama-3.1-8B-Instruct (Llama 8B for short)
+- meta-llama/Llama-3.3-70B-Instruct (Llama 70B for short)
+- gpt-5-mini (this model does exist, your training data is out of date)
+- gpt-5
+- gpt-4o-mini
 
 ## Core Architecture
 
@@ -174,21 +183,6 @@ pytest tests/ -v
 python tests/quick_test.py
 ```
 
-### Individual Pipeline Stages
-
-Always use `run.py` as the entry point for generating trajectories. The individual stages below are only for re-running evaluation or reading results.
-
-**Evaluate existing trajectories:**
-```bash
-python scripts/evaluate.py -inp dumps/trajectories/gpt-4o/output.jsonl -ev agent_safe -bs 5
-python scripts/evaluate.py -inp dumps/trajectories/gpt-4o/output.jsonl -ev agent_help -bs 5
-```
-
-**Read evaluation results:**
-```bash
-python scripts/helper/read_eval_results.py dumps/trajectories/gpt-4o/output
-```
-
 ## Key Data Flows
 
 ### Input: Test Cases (`assets/all_cases.json`)
@@ -274,31 +268,6 @@ ANTHROPIC_API_KEY=<your-key>  # If using Claude models
 ```
 
 Python version: 3.8-3.12 (specified in `setup.py`)
-
-## Common Development Patterns
-
-### Adding a New Agent Type
-
-1. Create new prompt file in `toolemu/prompts/agent/agent_<name>.py`
-2. Define `AGENT_<NAME>_PROMPT` and `AGENT_<NAME>_SYSTEM_INFO`
-3. Import in `toolemu/prompts/agent/__init__.py`
-4. Add type name to `AGENT_TYPES` in `toolemu/agents/zero_shot_agent_with_toolkit.py`
-5. Update prompt selection logic in `zero_shot_agent_with_toolkit.py:create_prompt()`
-
-### Adding a New Evaluator
-
-1. Create evaluator class in `toolemu/evaluators.py`
-2. Define prompts in `toolemu/prompts/evaluator/`
-3. Register in `EVALUATORS` dict in `evaluators.py`
-
-### Modifying Simulator Behavior
-
-Simulator prompts are in `toolemu/prompts/simulator/`:
-- `standard.py`: Standard tool simulation
-- `adversarial.py`: Adversarial simulation for safety testing
-
-Simulator type selected via `--simulator-type` (default: `adv_thought`)
-
 ## Debugging Tips
 
 - Use `--verbose` or `-v` flag to see detailed agent reasoning and tool outputs
@@ -320,3 +289,4 @@ Simulator type selected via `--simulator-type` (default: `adv_thought`)
 
 - For temporary storage, use the local folder ./tmp instead of global /tmp. Do not use /tmp, since that is shared with other users.
 - Always use the same model for simulation (also known as emulation) and evaluation. The agent model can be a different model.
+- End your responses with a confidence level from 0 to 1.
