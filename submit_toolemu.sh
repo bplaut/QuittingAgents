@@ -10,10 +10,33 @@
 #     --evaluator-model Qwen/Qwen3-32B \
 #     --agent-type naive quit simple_quit \
 #     --quantization int4 int8 \
-#     [--trunc-num 10]
+#     [--task-index-range 0-48] \
+#     [--parallel-splits 5]
 #
 # This will submit jobs for all combinations (cross product) of agent-model, agent-type, and quantization
 # Example: 2 models × 3 types × 2 quantizations = 12 jobs
+#
+# Optional parameters:
+#   --task-index-range START-END: Run only a subset of tasks (e.g., 0-48 for first 48 tasks)
+#                                 Uses Python slice semantics [START, END) - left-inclusive, right-exclusive
+#   --parallel-splits N:          Split the 144 tasks into N parallel jobs
+#                                 Cannot be used with --task-index-range
+#
+# Examples:
+#   # Run full dataset (144 tasks) with 3 configurations
+#   ./submit_toolemu.sh --input-path ./assets/all_cases.json \
+#     --agent-model gpt-4o-mini --simulator-model gpt-4o-mini --evaluator-model gpt-4o-mini \
+#     --agent-type naive quit simple_quit --quantization int4
+#
+#   # Run first 48 tasks only
+#   ./submit_toolemu.sh --input-path ./assets/all_cases.json \
+#     --agent-model gpt-4o --simulator-model gpt-4o --evaluator-model gpt-4o \
+#     --agent-type naive --quantization int4 --task-index-range 0-48
+#
+#   # Split 144 tasks into 5 parallel jobs (29+29+29+29+28 tasks)
+#   ./submit_toolemu.sh --input-path ./assets/all_cases.json \
+#     --agent-model gpt-4o --simulator-model gpt-4o --evaluator-model gpt-4o \
+#     --agent-type naive --quantization int4 --parallel-splits 5
 
 set -e
 
