@@ -119,8 +119,16 @@ def get_trajectory_progress(job_id, job_start_time=None):
 
             # Build file pattern including task range if present
             range_pattern = f"_r{task_range}_" if task_range else "_"
-            pattern = f"dumps/trajectories/{agent_safe}/{agent_safe}_{agent_type}_sim-{sim_safe}_*.jsonl"
-            matches = glob.glob(pattern)
+
+            # Check both output/trajectories and dumps/trajectories
+            patterns = [
+                f"output/trajectories/{agent_safe}/{agent_safe}_{agent_type}_sim-{sim_safe}_*.jsonl",
+                f"dumps/trajectories/{agent_safe}/{agent_safe}_{agent_type}_sim-{sim_safe}_*.jsonl"
+            ]
+
+            matches = []
+            for pattern in patterns:
+                matches.extend(glob.glob(pattern))
 
             # Filter out eval/costs/quit_stats files
             traj_files = [f for f in matches
