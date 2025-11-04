@@ -92,26 +92,55 @@ Key arguments:
 
 ### SLURM Cluster Usage
 
-**Recommended: Use the smart wrapper script for GPU workloads**
+Always use submit_toolemu.sh as the entry point. This wrapper script handles cross-product submission of multiple agent models, types, and quantization levels. It automatically decides whether to use GPU or CPU-only nodes.
+
 ```bash
-./submit_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
+./submit_toolemu.sh \
+  --input-path ./assets/all_cases.json \
+  --agent-model <model1> [model2...] \
+  --simulator-model <model> \
+  --evaluator-model <model> \
+  --agent-type <type1> [type2...] \
+  --quantization <quant1> [quant2...] \
+  [--parallel-splits <N>]
 
-# Example with HuggingFace models (auto-quantized to int4):
-./submit_toolemu.sh ./assets/all_cases.json Qwen/Qwen3-32B Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+# Example: Single configuration
+./submit_toolemu.sh \
+  --input-path ./assets/all_cases.json \
+  --agent-model Qwen/Qwen3-32B \
+  --simulator-model Qwen/Qwen3-32B \
+  --evaluator-model Qwen/Qwen3-32B \
+  --agent-type quit \
+  --quantization int4
 
-# Example with large models (automatically requests 80GB GPU nodes):
-./submit_toolemu.sh ./assets/all_cases.json meta-llama/Llama-3.1-70B-Instruct Qwen/Qwen3-32B Qwen/Qwen3-32B quit 144
+# Example: Cross product (2 models × 3 types × 2 quantizations = 12 jobs)
+./submit_toolemu.sh \
+  --input-path ./assets/all_cases.json \
+  --agent-model Qwen/Qwen3-8B meta-llama/Llama-3.1-8B-Instruct \
+  --simulator-model Qwen/Qwen3-32B \
+  --evaluator-model Qwen/Qwen3-32B \
+  --agent-type naive simple_quit quit \
+  --quantization int4 int8
 
-# Example with mixed API + HuggingFace:
-./submit_toolemu.sh ./assets/all_cases.json gpt-4o-mini Qwen/Qwen3-32B Qwen/Qwen3-32B quit 10
+# Example: With parallel splits (3 types × 5 splits = 15 jobs)
+./submit_toolemu.sh \
+  --input-path ./assets/all_cases.json \
+  --agent-model gpt-4o-mini \
+  --simulator-model gpt-4o-mini \
+  --evaluator-model gpt-4o-mini \
+  --agent-type naive simple_quit quit \
+  --quantization int4 \
+  --parallel-splits 5
 ```
 
 The `submit_toolemu.sh` wrapper automatically:
+- Submits jobs for all combinations (cross product) of agent models, types, and quantizations
 - Detects model sizes by parsing model names (e.g., "70B", "32B", "8B")
 - Calculates total GPU memory needed (agent + simulator/evaluator)
 - Requests 80GB GPU nodes if total > 70B parameters (e.g., Llama-70B + large models)
 - Requests standard GPU nodes otherwise (includes 40GB and 80GB nodes, e.g., A6000 48GB can handle 32B+32B)
-- HuggingFace models are automatically quantized to int4 (API models ignore quantization)
+- Uses CPU-only nodes for pure API model workloads (gpt-*, claude-*, etc.)
+- Supports parallel splits to divide the 144 test cases across multiple jobs
 
 **Alternative: Direct sbatch (manual node selection):**
 ```bash
