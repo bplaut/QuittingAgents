@@ -157,12 +157,20 @@ def get_trajectory_progress(job_id):
     return None, None, None, None, None
 
 def parse_time(time_str):
-    """Parse SLURM time format (e.g., '1:23:45' or '23:45') to seconds."""
-    parts = time_str.split(':')
+    """Parse SLURM time format (e.g., '1:23:45', '23:45', or '1-00:23:45') to seconds."""
+    # Handle day-hour:minute:second format (e.g., '1-00:23:45')
+    if '-' in time_str:
+        day_part, time_part = time_str.split('-')
+        days = int(day_part)
+        parts = time_part.split(':')
+    else:
+        days = 0
+        parts = time_str.split(':')
+
     if len(parts) == 3:
-        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+        return days * 86400 + int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
     elif len(parts) == 2:
-        return int(parts[0]) * 60 + int(parts[1])
+        return days * 86400 + int(parts[0]) * 60 + int(parts[1])
     return 0
 
 def format_time(seconds):
@@ -171,10 +179,15 @@ def format_time(seconds):
         return f"{seconds}s"
     elif seconds < 3600:
         return f"{seconds//60}m {seconds%60}s"
-    else:
+    elif seconds < 86400:
         hours = seconds // 3600
         mins = (seconds % 3600) // 60
         return f"{hours}h {mins}m"
+    else:
+        days = seconds // 86400
+        hours = (seconds % 86400) // 3600
+        mins = (seconds % 3600) // 60
+        return f"{days}d {hours}h {mins}m"
 
 def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_seconds, total_tasks=144):
     """Estimate time to completion based on current progress.
