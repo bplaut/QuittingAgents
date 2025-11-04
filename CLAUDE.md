@@ -289,4 +289,5 @@ Simulator type selected via `--simulator-type` (default: `adv_thought`)
 
 ## Misc
 
-- For temporary storage, use the local folder ./tmp instead of global /tmp, since /tmp is shared with other users.
+- For temporary storage, use the local folder ./tmp instead of global /tmp. Do not use /tmp, since that is shared with other users.
+- Always use the same model for simulation (also known as emulation) and evaluation. The agent model can be a different model.
