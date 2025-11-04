@@ -26,18 +26,85 @@ def extract_quantization_from_filename(filename: str) -> str:
     return "none"
 
 
+def clean_model_name(model_name: str) -> str:
+    """Clean up model name for display (similar to monitor_jobs.py)."""
+    # Examples: "Qwen/Qwen3-8B" -> "Qwen3-8B"
+    #          "meta-llama/Llama-3.1-8B-Instruct" -> "Llama3.1-8B"
+    #          "gpt-4o-mini" -> "gpt-4o-mini"
+    if 'Qwen3-8B' in model_name:
+        return 'Qwen3-8B'
+    elif 'Qwen3-32B' in model_name:
+        return 'Qwen3-32B'
+    elif 'Llama-3.1-8B' in model_name:
+        return 'Llama3.1-8B'
+    elif 'Llama-3.1-70B' in model_name:
+        return 'Llama3.1-70B'
+    elif model_name.startswith('gpt-'):
+        return model_name
+    elif model_name.startswith('claude-'):
+        return model_name
+    else:
+        return model_name
+
+
+def extract_agent_model_and_type_from_filename(filename: str) -> tuple[str, str]:
+    """
+    Extract agent model and type from the filename.
+
+    Filename structure: {agent_model}_{agent_type}_sim-{simulator_model}_{quantization}_unified_report.json
+
+    Examples:
+    - "gpt-4o-mini_naive_sim-gpt-4o-mini_int4_unified_report.json" -> ("gpt-4o-mini", "naive")
+    - "Qwen_Qwen3-8B_quit_sim-Qwen_Qwen3-32B_int4_unified_report.json" -> ("Qwen3-8B", "quit")
+    - "meta-llama_Llama-3.1-8B-Instruct_simple_quit_sim-Qwen_Qwen3-32B_int4_unified_report.json" -> ("Llama3.1-8B", "simple_quit")
+
+    Returns: (agent_model, agent_type)
+    """
+    # Remove _unified_report.json suffix
+    basename = filename.replace('_unified_report.json', '')
+
+    # Find the agent type marker
+    agent_type = None
+    if '_simple_quit_sim-' in basename:
+        agent_type = 'simple_quit'
+        # Everything before _simple_quit_sim- is the agent model
+        agent_model_part = basename.split('_simple_quit_sim-')[0]
+    elif '_quit_sim-' in basename:
+        agent_type = 'quit'
+        agent_model_part = basename.split('_quit_sim-')[0]
+    elif '_naive_sim-' in basename:
+        agent_type = 'naive'
+        agent_model_part = basename.split('_naive_sim-')[0]
+    elif '_ss_only_sim-' in basename:
+        agent_type = 'ss_only'
+        agent_model_part = basename.split('_ss_only_sim-')[0]
+    elif '_helpful_ss_sim-' in basename:
+        agent_type = 'helpful_ss'
+        agent_model_part = basename.split('_helpful_ss_sim-')[0]
+    else:
+        return "Unknown", "Unknown"
+
+    # Clean up the agent model part
+    # Examples: "gpt-4o-mini", "Qwen_Qwen3-8B", "meta-llama_Llama-3.1-8B-Instruct"
+    agent_model = clean_model_name(agent_model_part)
+
+    return agent_model, agent_type
+
+
 def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
     """Extract key metrics from a unified report JSON file."""
     try:
         with open(report_path, 'r') as f:
             data = json.load(f)
 
-        # Extract basic info
-        model_name = data.get('model_name', 'Unknown')
-        agent_type = data.get('agent_type', 'Unknown')
-        quantization = extract_quantization_from_filename(os.path.basename(report_path))
+        # Extract basic info from filename (more reliable than JSON fields)
+        filename = os.path.basename(report_path)
+        agent_model, agent_type = extract_agent_model_and_type_from_filename(filename)
+        quantization = extract_quantization_from_filename(filename)
+
         # Assume simulator and evaluator are the same, prefer simulator_model
-        simulator_model = data.get('simulator_model') or data.get('evaluator_model', 'Unknown')
+        raw_simulator = data.get('simulator_model') or data.get('evaluator_model', 'Unknown')
+        simulator_model = clean_model_name(raw_simulator)
 
         # Extract helpfulness (safety-enforcing: average across all metrics in agent_help)
         avg_helpfulness = None
@@ -80,7 +147,7 @@ def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
             quit_rate = float(quit_rate_str.strip('%')) / 100.0
 
         return {
-            'model_name': model_name,
+            'model_name': agent_model,  # Now using agent model from agent_type field
             'agent_type': agent_type,
             'quantization': quantization,
             'avg_helpfulness': avg_helpfulness,
@@ -183,8 +250,11 @@ def main():
     # If only one argument and it's a directory, scan it
     if len(args.paths) == 1 and os.path.isdir(args.paths[0]):
         results_dir = args.paths[0]
-        pattern = os.path.join(results_dir, "*_unified_report_*.json")
-        report_files.extend(glob.glob(pattern))
+        # Match both formats: *_unified_report.json and *_unified_report_*.json (aggregated)
+        pattern1 = os.path.join(results_dir, "*_unified_report.json")
+        pattern2 = os.path.join(results_dir, "*_unified_report_*.json")
+        report_files.extend(glob.glob(pattern1))
+        report_files.extend(glob.glob(pattern2))
     else:
         # Multiple arguments or single file: treat all as files
         for file_path in args.paths:
