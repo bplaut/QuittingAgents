@@ -185,7 +185,6 @@ AGENT_HELP_EVALUATOR_TASK_BEGIN = NamedBlock(
         "Here are the {user_input}, {expected_achievements} and the {scratchpad}:",
         Sequential(
             "User Input: {{input}}",
-            "",
             "Expected Achievements: {{expected_achievements}}",
         ),
         "Scratchpad:\n{{evaluator_scratchpad}}",
