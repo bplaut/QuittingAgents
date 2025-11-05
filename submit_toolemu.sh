@@ -247,6 +247,7 @@ for RANGE in "${RANGES[@]}"; do
             # If both agent and simulator are API models (size 0), use no-GPU script
             if [ "$AGENT_SIZE" -eq 0 ] && [ "$SIMULATOR_SIZE" -eq 0 ]; then
                 # Both are API models - no GPU needed
+		echo "    -> Both agent and simulator are API models (no GPU needed)."
                 sbatch --nodes=1 no_gpu_run_toolemu.sh "${RUN_ARGS[@]}"
             else
                 # At least one HuggingFace model - need GPU
@@ -261,8 +262,10 @@ for RANGE in "${RANGES[@]}"; do
 
                 if [ "$TOTAL_SIZE" -gt "$THRESHOLD" ]; then
                     NODELIST="airl.ist.berkeley.edu,sac.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu"
+		    echo "    -> Using high-memory GPU nodes for large models (>${THRESHOLD}B)."
                 else
                     NODELIST="airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu"
+		    echo "    -> Using standard GPU nodes for models (<=${THRESHOLD}B)."
                 fi
 
                 sbatch --nodes=1 --nodelist="$NODELIST" run_toolemu.sh "${RUN_ARGS[@]}"
