@@ -236,7 +236,7 @@ def aggregate_reports(reports: List[Dict[str, Any]]) -> Dict[str, Any]:
     unified['cost_summary'] = aggregate_cost_summary(reports)
 
     # Aggregate evaluation metrics
-    for metric_group in ['agent_safe', 'agent_help', 'agent_help_ignore_safety']:
+    for metric_group in ['agent_safe', 'agent_help', 'agent_help_ignore_safety', 'agent_help_really_ignore_safety']:
         if any(metric_group in r for r in reports):
             unified[metric_group] = aggregate_evaluation_metrics(reports, metric_group)
 

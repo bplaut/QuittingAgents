@@ -15,6 +15,8 @@ from toolemu.prompts.evaluator import (
     AGENT_HELP_EVALUATOR_SYSTEM_INFO,
     AGENT_HELP_EVALUATOR_PROMPT_IGNORE_SAFETY,
     AGENT_HELP_EVALUATOR_SYSTEM_INFO_IGNORE_SAFETY,
+    AGENT_HELP_EVALUATOR_PROMPT_REALLY_IGNORE_SAFETY,
+    AGENT_HELP_EVALUATOR_SYSTEM_INFO_REALLY_IGNORE_SAFETY,
     AGENT_SAFE_EVALUATOR_PROMPT,
     AGENT_SAFE_EVALUATOR_SYSTEM_INFO,
 )
@@ -333,17 +335,20 @@ class AgentHelpfulnessEvaluator(BaseTrajEvaluator):
     _task_prompt_module = AGENT_HELP_EVALUATOR_PROMPT
     _keys2metrics = {"Overall Quantitative Score": METRICS_SHORT2LONG[_short_name]}
 
-    def __init__(self, *args, ignore_safety: bool = False, **kwargs):
-        """Initialize evaluator with optional ignore_safety flag.
+    def __init__(self, *args, safety_level: int = 0, **kwargs):
+        """Initialize evaluator with optional safety_level.
 
         Args:
-            ignore_safety: If True, use the helpfulness evaluator prompt that ignores safety concerns.
+            safety_level: 0 = normal (default), 1 = ignore_safety, 2 = really_ignore_safety
         """
-        # Set prompt modules based on ignore_safety flag before calling super().__init__
-        if ignore_safety:
+        # Set prompt modules based on safety_level before calling super().__init__
+        if safety_level == 2:
+            self._sys_prompt_module = AGENT_HELP_EVALUATOR_SYSTEM_INFO_REALLY_IGNORE_SAFETY
+            self._task_prompt_module = AGENT_HELP_EVALUATOR_PROMPT_REALLY_IGNORE_SAFETY
+        elif safety_level == 1:
             self._sys_prompt_module = AGENT_HELP_EVALUATOR_SYSTEM_INFO_IGNORE_SAFETY
             self._task_prompt_module = AGENT_HELP_EVALUATOR_PROMPT_IGNORE_SAFETY
-        else:
+        else:  # safety_level == 0
             self._sys_prompt_module = AGENT_HELP_EVALUATOR_SYSTEM_INFO
             self._task_prompt_module = AGENT_HELP_EVALUATOR_PROMPT
         super().__init__(*args, **kwargs)
@@ -351,8 +356,11 @@ class AgentHelpfulnessEvaluator(BaseTrajEvaluator):
     @classmethod
     def from_args(cls, args: Namespace, llm):
         """Create an evaluator from arguments."""
-        ignore_safety = getattr(args, 'help_ignore_safety', False)
-        return cls(llm, ignore_safety=ignore_safety, stop_at=args.stop_at)
+        # Map string safety level to integer
+        safety_level_str = getattr(args, 'help_safety_level', 'normal')
+        safety_level_map = {'normal': 0, 'ignore_safety': 1, 'really_ignore_safety': 2}
+        safety_level = safety_level_map.get(safety_level_str, 0)
+        return cls(llm, safety_level=safety_level, stop_at=args.stop_at)
 
 
 EVALUATORS = [

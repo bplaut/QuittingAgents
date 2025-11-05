@@ -170,10 +170,12 @@ def get_trajectory_progress(job_id, job_start_time=None):
                 safe_eval_file = f"{base_path}_eval_agent_safe.jsonl"
                 help_eval_file = f"{base_path}_eval_agent_help.jsonl"
                 help_ignore_safety_eval_file = f"{base_path}_eval_agent_help_ignore_safety.jsonl"
+                help_really_ignore_safety_eval_file = f"{base_path}_eval_agent_help_really_ignore_safety.jsonl"
 
                 safe_lines = 0
                 help_lines = 0
                 help_ignore_safety_lines = 0
+                help_really_ignore_safety_lines = 0
 
                 if os.path.exists(safe_eval_file):
                     with open(safe_eval_file, 'r') as f:
@@ -187,8 +189,12 @@ def get_trajectory_progress(job_id, job_start_time=None):
                     with open(help_ignore_safety_eval_file, 'r') as f:
                         help_ignore_safety_lines = sum(1 for _ in f)
 
-                # Combine both help variants
-                total_help_lines = help_lines + help_ignore_safety_lines
+                if os.path.exists(help_really_ignore_safety_eval_file):
+                    with open(help_really_ignore_safety_eval_file, 'r') as f:
+                        help_really_ignore_safety_lines = sum(1 for _ in f)
+
+                # Combine all three help variants
+                total_help_lines = help_lines + help_ignore_safety_lines + help_really_ignore_safety_lines
 
                 basename = os.path.basename(best_match)
                 return traj_lines, safe_lines, total_help_lines, basename, quantization
@@ -234,8 +240,8 @@ def format_time(seconds):
 def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_seconds, total_tasks=144):
     """Estimate time to completion based on current progress.
 
-    Note: help_progress represents the sum of both help evaluation variants
-    (regular help and help_ignore_safety), so it should be out of 2*total_tasks.
+    Note: help_progress represents the sum of all three help evaluation variants
+    (regular help, help_ignore_safety, and help_really_ignore_safety), so it should be out of 3*total_tasks.
     """
     # Trajectory generation is much slower than evaluation (agent + simulator running multiple steps)
     # Weight trajectories higher: roughly 4x slower than a single evaluation
@@ -250,9 +256,9 @@ def estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec
                            help_progress * EVAL_WEIGHT)
 
     # Total weighted units of work (based on actual task count, not hardcoded 144)
-    # Note: help has 2 variants per task (help and help_ignore_safety), so 2*total_tasks help evals
-    total_weighted_units = total_tasks * TRAJ_WEIGHT + total_tasks * EVAL_WEIGHT + (2 * total_tasks) * EVAL_WEIGHT
-    # = total_tasks * 7 weighted units
+    # Note: help has 3 variants per task (help, help_ignore_safety, help_really_ignore_safety), so 3*total_tasks help evals
+    total_weighted_units = total_tasks * TRAJ_WEIGHT + total_tasks * EVAL_WEIGHT + (3 * total_tasks) * EVAL_WEIGHT
+    # = total_tasks * 8 weighted units
 
     if weighted_units_done == 0:
         return "Unknown"
@@ -375,8 +381,8 @@ def print_job_summary(jobs, show_pending=True):
                 total_tasks = parse_task_count_from_filename(filename)
                 traj_str = f"{traj_progress}/{total_tasks}"
                 safe_str = f"{safe_progress}/{total_tasks}"
-                # Help includes both help and help_ignore_safety variants, so out of 2*n
-                help_str = f"{help_progress}/{total_tasks * 2}"
+                # Help includes all three variants: help, help_ignore_safety, and help_really_ignore_safety, so out of 3*n
+                help_str = f"{help_progress}/{total_tasks * 3}"
                 eta = estimate_completion(traj_progress, safe_progress, help_progress, elapsed_sec, total_tasks)
                 agent, atype, sim = get_job_config(filename)
                 quant_str = quant if quant else "?"

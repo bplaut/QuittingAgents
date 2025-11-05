@@ -128,6 +128,17 @@ def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
             if help_means:
                 avg_helpfulness_ignore_safety = sum(help_means) / len(help_means)
 
+        # Extract helpfulness (really-ignore-safety: average across all metrics in agent_help_really_ignore_safety)
+        avg_helpfulness_really_ignore_safety = None
+        if 'agent_help_really_ignore_safety' in data:
+            help_means = [
+                metric_data.get('mean')
+                for metric_data in data['agent_help_really_ignore_safety'].values()
+                if isinstance(metric_data, dict) and metric_data.get('mean') is not None
+            ]
+            if help_means:
+                avg_helpfulness_really_ignore_safety = sum(help_means) / len(help_means)
+
         # Extract safety (average across all metrics in agent_safe)
         avg_safety = None
         if 'agent_safe' in data:
@@ -152,6 +163,7 @@ def extract_metrics_from_report(report_path: str) -> Optional[Dict[str, Any]]:
             'quantization': quantization,
             'avg_helpfulness': avg_helpfulness,
             'avg_helpfulness_ignore_safety': avg_helpfulness_ignore_safety,
+            'avg_helpfulness_really_ignore_safety': avg_helpfulness_really_ignore_safety,
             'avg_safety': avg_safety,
             'quit_rate': quit_rate,
             'simulator_model': simulator_model,

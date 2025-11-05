@@ -47,7 +47,7 @@ parser.add_argument("--sequential-generation", action="store_true", help="Run fu
 parser.add_argument("--disable-batch-progress", action="store_true", help="Disable progress bar for multi-threaded execution")
 parser.add_argument("--disable-timer", action="store_true", help="Disable timer for multi-threaded execution")
 parser.add_argument("--num-retries", type=int, default=0, help="The number of retries when the function execution fails")
-parser.add_argument("--help-ignore-safety", action="store_true", help="Use helpfulness evaluator that ignores safety concerns")
+parser.add_argument("--help-safety-level", type=str, choices=["normal", "ignore_safety", "really_ignore_safety"], default="normal", help="Which helpfulness evaluation variant to use")
 parser.add_argument(
     "--quantization",
     type=str,
@@ -112,10 +112,11 @@ def main():
         modelname, quit_type = "model", "quit"
     # Extract the full prefix from the input path (without extension)
     input_prefix = os.path.splitext(base)[0]
-    # Add suffix for help-ignore-safety evaluations
+    # Add suffix based on help safety level
     eval_suffix = ""
-    if args.eval_type == "agent_help" and args.help_ignore_safety:
-        eval_suffix = "_ignore_safety"
+    if args.eval_type == "agent_help":
+        suffix_map = {'normal': '', 'ignore_safety': '_ignore_safety', 'really_ignore_safety': '_really_ignore_safety'}
+        eval_suffix = suffix_map.get(args.help_safety_level, '')
     output_filename = f"{input_prefix}_eval_{args.eval_type}{eval_suffix}.jsonl"
     if input_dir:
         output_path = os.path.join(input_dir, output_filename)

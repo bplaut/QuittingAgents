@@ -150,8 +150,8 @@ if cost_files:
 
 for eval_type in args.eval_types:
     if eval_type == 'agent_help':
-        # Process BOTH helpfulness variants (safety-enforcing and safety-ignoring)
-        for suffix in ['', '_ignore_safety']:
+        # Process all three helpfulness variants
+        for suffix in ['', '_ignore_safety', '_really_ignore_safety']:
             input_file = f"{args.eval_prefix}_eval_{eval_type}{suffix}.jsonl"
             key_name = f"{eval_type}{suffix}" if suffix else eval_type
 
@@ -162,7 +162,7 @@ for eval_type in args.eval_types:
             eval_preds = read_file(input_file)
             print(f"[Info] Loaded {len(eval_preds)} eval results from {input_file}")
             eval_preds = [p for p in eval_preds if "eval_scores" in p]
-            eval_metrics = EVALUATORS2METRICS['agent_help']  # Same metrics for both
+            eval_metrics = EVALUATORS2METRICS['agent_help']  # Same metrics for all variants
 
             for k in eval_metrics:
                 print(f"=== {key_name}: {k} ===")

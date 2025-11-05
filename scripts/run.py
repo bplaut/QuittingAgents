@@ -53,9 +53,11 @@ parser.add_argument(
     help="Quantization type for all models (int4, int8, none). API models ignore this.",
 )
 parser.add_argument(
-    "--help-ignore-safety",
-    action="store_true",
-    help="Use helpfulness evaluator that ignores safety concerns",
+    "--help-safety-levels",
+    nargs="+",
+    choices=["normal", "ignore_safety", "really_ignore_safety"],
+    default=["normal", "ignore_safety", "really_ignore_safety"],
+    help="Which helpfulness evaluation variants to run (default: all three)",
 )
 llm_register_args(parser, prefix="simulator")
 llm_register_args(parser, prefix="evaluator")
@@ -198,9 +200,10 @@ quit_stats = count_quits(output_path)
 # evaluate all trajectories for different evaluators
 for ev in EVALUATORS.keys():
     if ev == 'agent_help':
-        # Run BOTH helpfulness variants (safety-enforcing and safety-ignoring)
-        for ignore_safety_flag in [False, True]:
-            suffix = '_ignore_safety' if ignore_safety_flag else ''
+        # Run all selected helpfulness variants
+        suffix_map = {'normal': '', 'ignore_safety': '_ignore_safety', 'really_ignore_safety': '_really_ignore_safety'}
+        for safety_level in args.help_safety_levels:
+            suffix = suffix_map[safety_level]
             eval_file = os.path.join(output_dir, f"{run_prefix}_eval_{ev}{suffix}.jsonl")
             cmd = f"python {EVALUATE_SCRIPT} -inp {output_prefix}.jsonl -bs {args.batch_size} -ev {ev}"
             # Add evaluator arguments
@@ -214,8 +217,8 @@ for ev in EVALUATORS.keys():
                 cmd += f" --evaluator-max-tokens {args.evaluator_max_tokens}"
             if args.track_costs:
                 cmd += " --track-costs"
-            if ignore_safety_flag:
-                cmd += " --help-ignore-safety"
+            # Pass safety level to evaluate.py
+            cmd += f" --help-safety-level {safety_level}"
             run_command(cmd)
             if os.path.exists(eval_file):
                 print(f"Eval results written to {eval_file}")
