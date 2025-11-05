@@ -8,9 +8,9 @@ This repository implements **Quitting Agents**, a safety mechanism for LLM agent
 
 Key paper: "Check Yourself Before You Wreck Yourself: Selectively Quitting Improves LLM Agent Safety"
 
-## Safety Instructions
+## Safety Instructions **IMPORTANT**
 
-**IMPORTANT**: When working in this codebase, it is crucial that you always confirm with the user before taking irreversible actions. Even for reversible actions, if you are at all uncertain, ask for clarification from the user rather than making a mistake. This is especially important when you are taking actions that could be unsafe. You MUST ask for clarification in any of the following situations:
+When working in this codebase, it is crucial that you always confirm with the user before taking irreversible actions. Even for reversible actions, if you are at all uncertain, ask for clarification from the user rather than making a mistake. This is especially important when you are taking actions that could be unsafe. You MUST ask for clarification in any of the following situations:
 
 1. If you cannot rule out negative consequences for any of the possible actions you might take next
 2. If you need more information about what you should be doing in order to act carefully and safely
@@ -24,6 +24,7 @@ Key paper: "Check Yourself Before You Wreck Yourself: Selectively Quitting Impro
 ## Handling results
 
 The immediate output of runs are saved in "output". The final results are saved in "aggregated_output". Typically runs will be split into several parallel jobs. The output of each of these jobs will be saved to "output". Then you'll need to aggregate these results by running scripts/aggregate_results.py, which will take as input the dir named "output" and save the results to "aggregated_results". To visualize results, run scripts/compare_results.py on the aggregated_results dir.
+
 ## Models
 
 The typical models used are
@@ -80,29 +81,11 @@ pip install -e .
 
 This installs the `toolemu` package in editable mode with all dependencies from `requirements.txt`.
 
-### Running Evaluations
+### Running Jobs
 
-**Quick test (local, API models):**
-```bash
-python scripts/run.py --agent-model gpt-4o-mini --agent-type quit --trunc-num 2 --auto
-```
+Always use `./submit_toolemu.sh` as the entry point for running evaluations. This wrapper script handles job submission, automatically selects appropriate compute nodes (GPU vs CPU-only), and supports cross-product submission of multiple configurations. Do not use `run.py` or `run_toolemu.sh` directly unless the user explicitly requests it.
 
-**Full evaluation:**
-```bash
-python scripts/run.py --agent-model gpt-4o --agent-type quit --trunc-num 5 --auto
-```
-
-Key arguments:
-- `--agent-model`: LLM model name (e.g., `gpt-4o`, `claude-sonnet-4`)
-- `--agent-type`: Agent prompting strategy (`naive`, `quit`, `simple_quit`, etc.)
-- `--trunc-num`: Number of test cases to run (full dataset is 144 cases)
-- `--auto`: Skip confirmation prompts
-- `--track-costs`: Enable cost tracking for API usage
-
-### SLURM Cluster Usage
-
-Always use submit_toolemu.sh as the entry point. This wrapper script handles cross-product submission of multiple agent models, types, and quantization levels. It automatically decides whether to use GPU or CPU-only nodes.
-
+**Usage:**
 ```bash
 ./submit_toolemu.sh \
   --input-path ./assets/all_cases.json \
@@ -111,9 +94,36 @@ Always use submit_toolemu.sh as the entry point. This wrapper script handles cro
   --evaluator-model <model> \
   --agent-type <type1> [type2...] \
   --quantization <quant1> [quant2...] \
-  [--parallel-splits <N>]
+  [--parallel-splits <N>] \
+  [--task-index-range <start-end>]
+```
 
-# Example: Single configuration
+**Arguments:**
+- `--input-path': Path to dataset
+- `--agent-model`: LLM model name (e.g., `gpt-5`, `Qwen/Qwen3-32B`)
+- `--simulator-model`: Simulator model (typically same as evaluator)
+- `--evaluator-model`: Evaluator model (typically same as simulator)
+- `--agent-type`: Agent prompting strategy (`naive`, `quit`, `simple_quit`, etc.)
+- `--quantization`: Quantization level for HuggingFace models (`int4`, `int8`)
+- `--task-index-range`: Task range to run, e.g., `0-10` (full dataset is `0-144`)
+- `--parallel-splits`: Number of parallel jobs to split the dataset across
+
+If the user doesn't specify quantization or agent type, use int4 and naive respectively.
+
+**Examples:**
+
+```bash
+# Test run with 2 tasks
+./submit_toolemu.sh \
+  --input-path ./assets/all_cases.json \
+  --agent-model Qwen/Qwen3-32B \
+  --simulator-model gpt-5 \
+  --evaluator-model gpt-5 \
+  --agent-type naive \
+  --quantization int8 \
+  --task-index-range 0-2
+
+# Single configuration (full dataset)
 ./submit_toolemu.sh \
   --input-path ./assets/all_cases.json \
   --agent-model Qwen/Qwen3-32B \
@@ -122,7 +132,7 @@ Always use submit_toolemu.sh as the entry point. This wrapper script handles cro
   --agent-type quit \
   --quantization int4
 
-# Example: Cross product (2 models × 3 types × 2 quantizations = 12 jobs)
+# Cross product (2 models × 3 types × 2 quantizations = 12 jobs)
 ./submit_toolemu.sh \
   --input-path ./assets/all_cases.json \
   --agent-model Qwen/Qwen3-8B meta-llama/Llama-3.1-8B-Instruct \
@@ -131,7 +141,7 @@ Always use submit_toolemu.sh as the entry point. This wrapper script handles cro
   --agent-type naive simple_quit quit \
   --quantization int4 int8
 
-# Example: With parallel splits (3 types × 5 splits = 15 jobs)
+# With parallel splits (3 types × 5 splits = 15 jobs)
 ./submit_toolemu.sh \
   --input-path ./assets/all_cases.json \
   --agent-model gpt-4o-mini \
@@ -146,29 +156,12 @@ The `submit_toolemu.sh` wrapper automatically:
 - Submits jobs for all combinations (cross product) of agent models, types, and quantizations
 - Detects model sizes by parsing model names (e.g., "70B", "32B", "8B")
 - Calculates total GPU memory needed (agent + simulator/evaluator)
-- Requests 80GB GPU nodes if total > 70B parameters (e.g., Llama-70B + large models)
+- Requests 80GB GPU nodes if total > 70B parameters (e.g., Llama-70B + large models) for int4 or >35B parameters for int8
 - Requests standard GPU nodes otherwise (includes 40GB and 80GB nodes, e.g., A6000 48GB can handle 32B+32B)
 - Uses CPU-only nodes for pure API model workloads (gpt-*, claude-*, etc.)
 - Supports parallel splits to divide the 144 test cases across multiple jobs
 
-**Alternative: Direct sbatch (manual node selection):**
-```bash
-# For small models (standard nodes):
-sbatch --nodes=1 --nodelist=airl.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu,gan.ist.berkeley.edu,ddpg.ist.berkeley.edu,dqn.ist.berkeley.edu run_toolemu.sh ./assets/all_cases.json <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
-
-# For large models (80GB nodes only):
-sbatch --nodes=1 --nodelist=airl.ist.berkeley.edu,sac.ist.berkeley.edu,cirl.ist.berkeley.edu,rlhf.ist.berkeley.edu run_toolemu.sh ./assets/all_cases.json <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
-```
-
-**For CPU-only workloads (API models only):**
-```bash
-sbatch no_gpu_run_toolemu.sh <input_path> <agent_model> <simulator_model> <evaluator_model> <agent_type> <trunc_num>
-
-# Example (all API models):
-sbatch no_gpu_run_toolemu.sh ./assets/all_cases.json gpt-4o gpt-4o-mini gpt-4o-mini quit 10
-
-# Does not request GPUs, suitable for pure API workloads
-```
+If the user doesn't specify quantization or agent type, use int4 and naive respectively.
 
 ### Testing
 
@@ -271,7 +264,7 @@ Python version: 3.8-3.12 (specified in `setup.py`)
 ## Debugging Tips
 
 - Use `--verbose` or `-v` flag to see detailed agent reasoning and tool outputs
-- Use `--trunc-num 1` to run single test case for quick debugging
+- Use `--task-index-range 0-1` to run single test case for quick debugging
 - Check `logs/` directory for SLURM job outputs
 - Trajectory files are human-readable JSONL—can inspect directly
 - Use `scripts/helper/jsonl_to_json.py` to convert JSONL to pretty-printed JSON
