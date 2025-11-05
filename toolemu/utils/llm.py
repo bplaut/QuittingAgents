@@ -170,7 +170,7 @@ def load_openai_llm(model_name: str = "gpt-4o-mini", quantization=None, gpu_memo
     ModelEnvManager.set_env_for_model(model_name)
 
     # Check for HuggingFace models FIRST (before any prefix checks)
-    # All HuggingFace model names contain "/" (e.g., "meta-llama/Llama-3.1-8B", "openai/gpt-oss-20b")
+    # All HuggingFace model names contain "/" (e.g., "meta-llama/Llama-3.1-8B", "Qwen/Qwen3-8B")
     if "/" in model_name:
         return _load_transformers_model(
             model_name,
@@ -228,12 +228,7 @@ def _load_transformers_model(
 
     print(f"[INFO] Loading HuggingFace model: {model_name}")
 
-    # openai/gpt-oss-20b is already pre-quantized with Mxfp4 on HuggingFace
-    # Skip additional BitsAndBytes quantization to avoid conflict
-    if model_name == "openai/gpt-oss-20b" and quantization:
-        print(f"[INFO] Model {model_name} is already pre-quantized, skipping additional quantization")
-        quantization = None
-    elif quantization:
+    if quantization:
         print(f"[INFO] Using quantization: {quantization}")
 
     # Load tokenizer

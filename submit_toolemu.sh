@@ -45,7 +45,7 @@ set -e
 get_model_size() {
     local model=$1
 
-    # HuggingFace models always contain "/" (e.g., "meta-llama/Llama-3.1-8B", "openai/gpt-oss-20b")
+    # HuggingFace models always contain "/" (e.g., "meta-llama/Llama-3.1-8B", "Qwen/Qwen3-8B")
     # These need GPUs, so extract their size
     if echo "$model" | grep -q '/'; then
         # Extract number before B/b (e.g., "8B" -> 8, "70B" -> 70, "20b" -> 20)
