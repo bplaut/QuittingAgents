@@ -51,6 +51,8 @@ class CostTracker:
         # OpenAI Models
         "o3": {"input": 0.002, "output": 0.008},  # $2/1M input, $8/1M output
         "o3-mini": {"input": 0.0011, "output": 0.0044},  # $1.10/1M input, $4.40/1M output
+        "gpt-5": {"input": 0.00125, "output": 0.01},  # $1.25/1M input, $10/1M output
+        "gpt-5-mini": {"input": 0.00025, "output": 0.002},  # $0.25/1M input, $2/1M output
         "gpt-4.1": {"input": 0.002, "output": 0.008},  # $2/1M input, $8/1M output
         "gpt-4.1-nano": {"input": 0.0004, "output": 0.0016},  # $0.40/1M input, $1.60/1M output
         "gpt-4o": {"input": 0.0025, "output": 0.01},  # add hyphen variant
